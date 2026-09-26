@@ -9,7 +9,7 @@ import * as depo from './depo.js'
 import { basariSesi, uyariSesi, sesiAc } from './ses.js'
 import {
   varsayilanAyar, soruPuani, puanla, sayiTR, adSoyad, sorunlariBul, kitapcikSec,
-  kayitOlustur, tekrarKontrol, anahtarTaslagi, SIKLAR, yuvarla,
+  kayitOlustur, tekrarKontrol, anahtarTaslagi, SIKLAR,
 } from './mantik.js'
 
 const anahtarTamam = s => Object.keys(s.anahtarlar).length > 0 &&
@@ -588,7 +588,6 @@ function Dagilim({ puanlar, enYuksek }) {
 
 function SonucEkrani({ sinav, setSinav, git }) {
   const { ayar, anahtarlar, ogrenciler } = sinav
-  const [eposta, setEposta] = useState(() => { try { return localStorage.getItem('optik-okuyucu.eposta') || '' } catch { return '' } })
   const [durum, setDurum] = useState(null) // {tur, metin}
   const [mesgul, setMesgul] = useState(false)
   const [sirala, setSirala] = useState('sira')
@@ -625,30 +624,6 @@ function SonucEkrani({ sinav, setSinav, git }) {
       await navigator.share({ files: [f], title: ad, text: `${ayar.sinavAdi || 'Sınav'} sonuçları` })
     } catch (e) { if (e.name !== 'AbortError') setDurum({ tur: 'hata', metin: e.message }) } finally { setMesgul(false) }
   }
-  async function gonder(e) {
-    e.preventDefault()
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(eposta.trim())) { setDurum({ tur: 'hata', metin: 'Geçerli bir e-posta adresi girin.' }); return }
-    setMesgul(true); setDurum({ tur: 'bilgi', metin: 'Gönderiliyor…' })
-    try { localStorage.setItem('optik-okuyucu.eposta', eposta.trim()) } catch { /* yok */ }
-    try {
-      const { buf, ad } = await dosya()
-      const bytes = new Uint8Array(buf)
-      let bin = ''
-      for (let i = 0; i < bytes.length; i += 0x8000) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000))
-      const yanit = await fetch('/api/eposta', {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          kime: eposta.trim(), sinavAdi: ayar.sinavAdi, dosyaAdi: ad, veri: btoa(bin),
-          ozet: { ogrenci: ogrenciler.length, ortalama: yuvarla(ort, 2) },
-        }),
-      })
-      const j = await yanit.json().catch(() => ({}))
-      if (!yanit.ok || !j.tamam) throw new Error(j.hata || `Sunucu hatası (${yanit.status})`)
-      setDurum({ tur: 'tamam', metin: `✅ Excel ${eposta.trim()} adresine gönderildi. Gelen kutunuzu (ve istenmeyen klasörünü) kontrol edin.` })
-    } catch (err) {
-      setDurum({ tur: 'hata', metin: `E-posta gönderilemedi: ${err.message}. Dosyayı "Excel'i indir" ya da "Paylaş" ile alabilirsiniz.` })
-    } finally { setMesgul(false) }
-  }
 
   return (
     <section className="kart">
@@ -662,19 +637,9 @@ function SonucEkrani({ sinav, setSinav, git }) {
       {puanlar.length > 0 && <Dagilim puanlar={puanlar} enYuksek={enYuksekPuan} />}
 
       <div className="aktar-kart">
-        <form className="eposta" onSubmit={gonder}>
-          <label className="alan"><span className="alan-ad">Excel'i e-postayla gönder</span>
-            <div className="yan-yana">
-              <div className="simgeli-alan">
-                <Simge ad="posta" />
-                <input type="email" inputMode="email" autoComplete="email" placeholder="ornek@okul.k12.tr" value={eposta} onChange={e => setEposta(e.target.value)} />
-              </div>
-              <button type="submit" className="birincil" disabled={mesgul || !ogrenciler.length}>{mesgul ? <span className="donen kucuk" aria-hidden="true" /> : <Simge ad="posta" />}Gönder</button>
-            </div>
-          </label>
-        </form>
+        <div className="aktar-baslik">Sonuçları al</div>
         <div className="dugmeler sol">
-          <button type="button" className="ikincil" disabled={mesgul || !ogrenciler.length} onClick={indir}><Simge ad="indir" />Excel'i indir</button>
+          <button type="button" className="birincil" disabled={mesgul || !ogrenciler.length} onClick={indir}>{mesgul ? <span className="donen kucuk" aria-hidden="true" /> : <Simge ad="indir" />}Excel'i indir</button>
           {typeof navigator !== 'undefined' && navigator.share && <button type="button" className="ikincil" disabled={mesgul || !ogrenciler.length} onClick={paylas}><Simge ad="paylas" />Paylaş</button>}
         </div>
         {durum && <div className={durum.tur === 'hata' ? 'hata-kutu' : durum.tur === 'tamam' ? 'basari-kutu' : 'bilgi-kutu'}><Simge ad={durum.tur === 'hata' ? 'uyari' : durum.tur === 'tamam' ? 'onayDaire' : 'bilgi'} /><span>{durum.metin.replace(/^✅\s*/, '')}</span></div>}
