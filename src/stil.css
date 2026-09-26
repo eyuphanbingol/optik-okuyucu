@@ -417,20 +417,26 @@ button:disabled { opacity: 0.5; cursor: default; }
 
 .kamera-ekran {
   position: fixed;
-  inset: 0;
-  z-index: 15;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  width: 100dvw;
+  height: 100vh;
+  height: 100dvh;
+  z-index: 90;
   background: #000;
-  display: flex;
-  flex-direction: column;
-  animation: sahne-gir 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  margin: 0;
+  padding: 0;
+  overflow: hidden;
 }
 
 .kamera-ekran .kamera {
-  flex: 1 1 auto;
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   max-height: none;
-  aspect-ratio: auto;
+  aspect-ratio: unset;
   margin: 0;
   border: 0;
   border-radius: 0;
@@ -496,6 +502,19 @@ button:disabled { opacity: 0.5; cursor: default; }
 .kamera-ekran .bildirim {
   bottom: calc(78px + env(safe-area-inset-bottom, 0px));
   z-index: 4;
+}
+
+.kamera-ekran .okut-kamera {
+  position: absolute;
+  inset: 0;
+  display: block;
+  min-height: 0;
+}
+
+.kamera-ekran .okut-kamera .kamera {
+  position: absolute;
+  inset: 0;
+  height: 100%;
 }
 
 .kamera video {
@@ -616,19 +635,6 @@ button:disabled { opacity: 0.5; cursor: default; }
 }
 
 .okut-kamera { position: relative; }
-
-.kamera-ekran .okut-kamera {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  position: relative;
-}
-
-.kamera-ekran .okut-kamera .kamera {
-  flex: 1 1 auto;
-  height: 100%;
-}
 
 .nasil {
   background: var(--kart);
@@ -773,7 +779,7 @@ button:disabled { opacity: 0.5; cursor: default; }
   inset: 0;
   background: rgba(8, 14, 20, 0.58);
   backdrop-filter: blur(6px);
-  z-index: 20;
+  z-index: 100;
   display: flex;
   align-items: flex-start;
   justify-content: center;

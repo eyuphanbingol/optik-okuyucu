@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import Kamera from './bilesenler/Kamera.jsx'
 import AnahtarDuzenle from './bilesenler/AnahtarDuzenle.jsx'
 import KontrolPenceresi from './bilesenler/KontrolPenceresi.jsx'
@@ -184,14 +185,15 @@ function AnahtarEkrani({ sinav, setSinav, git, okuyucuDurum, yukleme }) {
           ))}
         </div>
       )}
-      {kamera ? (
+      {kamera ? createPortal(
         <div className="kamera-ekran" role="dialog" aria-modal="true" aria-label="Kamera">
           <div className="kamera-ekran-ust">
             <span className="kamera-ekran-baslik">Cevap anahtarı</span>
             <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}>Kapat</button>
           </div>
           <Kamera aktif={!duzenle} onKabul={okundu} ipucu="Cevap anahtarı kâğıdını okutun" />
-        </div>
+        </div>,
+        document.body,
       ) : (
         <div className="dugmeler">
           <button type="button" className="birincil" disabled={okuyucuDurum !== 'hazir'} onClick={() => setKamera(true)}>
@@ -292,7 +294,7 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
         <button type="button" className="birincil" onClick={() => git('sonuc')}>Bitti → Excel</button>
       </div>
 
-      {kamera && (
+      {kamera && createPortal(
         <div className="kamera-ekran" role="dialog" aria-modal="true" aria-label="Kamera">
           <div className="kamera-ekran-ust">
             <span className="kamera-ekran-baslik">{ogrenciler.length} öğrenci okundu</span>
@@ -302,7 +304,8 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
             <Kamera aktif={!aktifIs && okuyucuDurum === 'hazir'} onKabul={okundu} />
             {bildirim && sonBildirimYasi < 5000 && <div className={'bildirim ' + bildirim.tur}>{bildirim.metin}</div>}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
 
       <div className="liste-kart">
