@@ -40,7 +40,7 @@ export default function App() {
   return (
     <div className="uygulama" onPointerDown={sesiAc}>
       <header className="ust">
-        <div className="logo">📝 Optik Okuyucu</div>
+        <div className="logo" aria-label="Optik Okuyucu">Optik Okuyucu</div>
         <nav className="adimlar">
           {[['ayar', '1. Ayarlar'], ['anahtar', '2. Cevap anahtarı'], ['okut', '3. Okut'], ['sonuc', '4. Sonuç']].map(([e, ad]) => (
             <button key={e} type="button" className={sinav.ekran === e ? 'aktif' : ''}
