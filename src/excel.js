@@ -4,7 +4,6 @@ const MAVI = 'FF1F4E78'
 const YESIL = 'FFC6EFCE'
 const KIRMIZI = 'FFFFC7CE'
 const GRI = 'FFEDEDED'
-const TURUNCU = 'FFFFE0B2'
 
 function baslikSatiri(ws) {
   const r = ws.getRow(1)
@@ -52,21 +51,18 @@ export async function excelOlustur(sinav) {
     { header: 'Boş', key: 'b', width: 8 },
     { header: 'Net', key: 'net', width: 9 },
     { header: 'Puan', key: 'puan', width: 9 },
-    { header: 'Not', key: 'not', width: 40 },
   ]
   for (const { sira, o, p } of satirlar) {
     const r = ws.addRow({
       sira, no: o.no || '',
       ad: baslikBicim(o.ad), soyad: baslikBicim(o.soyad), kitapcik: o.kitapcik || '',
       d: p?.d, y: p?.y, b: p?.b, net: p?.net, puan: p?.puan,
-      not: [...(o.notlar || []), p ? '' : 'Cevap anahtarı yok'].filter(Boolean).join('; '),
     })
     r.getCell('net').numFmt = '0.00'
     r.getCell('puan').numFmt = '0.00'
-    if (o.notlar && o.notlar.length) dolgu(r.getCell('not'), TURUNCU)
   }
   baslikSatiri(ws)
-  ws.autoFilter = { from: 'A1', to: 'K1' }
+  ws.autoFilter = { from: 'A1', to: 'J1' }
 
   // ---------------- Sıralama (puana göre)
   const wr = wb.addWorksheet('Sıralama')
