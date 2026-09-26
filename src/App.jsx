@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom'
 import Kamera from './bilesenler/Kamera.jsx'
 import AnahtarDuzenle from './bilesenler/AnahtarDuzenle.jsx'
 import KontrolPenceresi from './bilesenler/KontrolPenceresi.jsx'
+import Simge, { Logo } from './bilesenler/Simge.jsx'
 import { hazirla } from './omr/istemci.js'
 import * as depo from './depo.js'
 import { basariSesi, uyariSesi, sesiAc } from './ses.js'
@@ -15,6 +16,15 @@ const anahtarTamam = s => Object.keys(s.anahtarlar).length > 0 &&
   Object.values(s.anahtarlar).every(a => a.slice(0, s.ayar.soruSayisi).every(x => x != null))
 
 const yeniSinav = () => ({ ayar: varsayilanAyar(), anahtarlar: {}, ogrenciler: [], ekran: 'ayar', olusturma: Date.now() })
+
+const ADIMLAR = [['ayar', 'Ayarlar', 'Ayarlar'], ['anahtar', 'Cevap anahtarı', 'Anahtar'], ['okut', 'Okut', 'Okut'], ['sonuc', 'Sonuç', 'Sonuç']]
+
+/** Ad soyadın baş harfleri (liste avatarı) */
+const basHarf = o => {
+  const t = adSoyad(o)
+  if (t === 'İsimsiz') return '?'
+  return t.split(' ').filter(Boolean).slice(0, 2).map(k => k[0]).join('').toLocaleUpperCase('tr-TR')
+}
 
 export default function App() {
   const [sinav, setSinav] = useState(() => {
@@ -29,7 +39,7 @@ export default function App() {
   useEffect(() => { setKayitHatasi(!depo.kaydet(sinav)) }, [sinav])
   const okuyucuBaslat = useCallback(() => {
     setOkuyucuDurum('yukleniyor')
-    hazirla((oran, mesaj) => setYukleme({ oran, mesaj }))
+    hazirla((oran, mesaj) => setYukleme(y => (y.oran === oran && y.mesaj === (mesaj || y.mesaj) ? y : { oran, mesaj: mesaj || y.mesaj })))
       .then(() => setOkuyucuDurum('hazir'))
       .catch(e => setOkuyucuDurum('hata:' + e.message))
   }, [])
@@ -37,38 +47,74 @@ export default function App() {
 
   const git = ekran => setSinav(s => ({ ...s, ekran }))
   const ortak = { sinav, setSinav, git, okuyucuDurum, yukleme }
+  const siraNo = ADIMLAR.findIndex(([e]) => e === sinav.ekran)
+  const yuzde = Math.round(yukleme.oran * 100)
 
   return (
     <div className="uygulama" onPointerDown={sesiAc}>
       <header className="ust">
-        <div className="logo" aria-label="Optik Okuyucu">Optik Okuyucu</div>
-        <nav className="adimlar">
-          {[['ayar', '1. Ayarlar'], ['anahtar', '2. Cevap anahtarı'], ['okut', '3. Okut'], ['sonuc', '4. Sonuç']].map(([e, ad]) => (
-            <button key={e} type="button" className={sinav.ekran === e ? 'aktif' : ''}
-              disabled={(e === 'okut' || e === 'sonuc') && !anahtarTamam(sinav)}
-              onClick={() => git(e)}>{ad}</button>
-          ))}
+        <div className="ust-ic">
+          <div className="marka">
+            <Logo />
+            <div className="logo" aria-label="Optik Okuyucu">Optik Okuyucu</div>
+          </div>
+          <div className={'okuyucu-rozet ' + (okuyucuDurum === 'hazir' ? 'hazir' : okuyucuDurum === 'yukleniyor' ? 'yukleniyor' : 'hata')}
+            title={okuyucuDurum === 'hazir' ? 'Okuyucu hazır' : okuyucuDurum === 'yukleniyor' ? yukleme.mesaj : 'Okuyucu yüklenemedi'}>
+            <span className="rozet-nokta" aria-hidden="true" />
+            <span>{okuyucuDurum === 'hazir' ? 'Hazır' : okuyucuDurum === 'yukleniyor' ? `%${yuzde}` : 'Hata'}</span>
+          </div>
+        </div>
+        <nav className="adimlar" aria-label="Adımlar">
+          {ADIMLAR.map(([e, ad, kisa], i) => {
+            const bitti = i < siraNo
+            return (
+              <button key={e} type="button" className={(sinav.ekran === e ? 'aktif' : '') + (bitti ? ' bitti' : '')}
+                aria-current={sinav.ekran === e ? 'step' : undefined}
+                disabled={(e === 'okut' || e === 'sonuc') && !anahtarTamam(sinav)}
+                onClick={() => git(e)}>
+                <span className="adim-no" aria-hidden="true">{bitti ? <Simge ad="onay" boyut={11} kalinlik={3} /> : i + 1}</span>
+                <span className="adim-ad"><span className="uzun">{ad}</span><span className="kisa" aria-hidden="true">{kisa}</span></span>
+              </button>
+            )
+          })}
         </nav>
       </header>
-      {kayitHatasi && <div className="hata-kutu ince">Tarayıcı veriyi kaydedemiyor (gizli sekme olabilir). Sayfayı yenilemeyin.</div>}
+      {kayitHatasi && <div className="hata-kutu ince"><Simge ad="uyari" />Tarayıcı veriyi kaydedemiyor (gizli sekme olabilir). Sayfayı yenilemeyin.</div>}
       {okuyucuDurum === 'yukleniyor' && (
         <div className="yukleme" role="status">
-          <div className="yukleme-cubuk"><span style={{ width: `${Math.round(yukleme.oran * 100)}%` }} /></div>
-          <small>{yukleme.mesaj} {Math.round(yukleme.oran * 100)}% <span className="kucuk-not">(ilk açılışta ~4 MB indirilir, sonra önbellekten gelir)</span></small>
+          <div className="yukleme-ust">
+            <span className="yukleme-simge" aria-hidden="true"><span className="donen" /></span>
+            <span className="yukleme-metin"><b>{yukleme.mesaj}</b><small className="kucuk-not">İlk açılışta bir kez indirilir, sonra önbellekten anında açılır</small></span>
+            <span className="yukleme-yuzde">%{yuzde}</span>
+          </div>
+          <div className="yukleme-cubuk"><span style={{ width: `${yuzde}%` }} /></div>
         </div>
       )}
       {okuyucuDurum.startsWith('hata') && (
         <div className="hata-kutu ince">
-          <b>Okuyucu yüklenemedi.</b> {okuyucuDurum.slice(5)}
-          <div className="dugmeler sol"><button type="button" className="ikincil" onClick={okuyucuBaslat}>Tekrar dene</button></div>
+          <Simge ad="uyari" />
+          <div>
+            <b>Okuyucu yüklenemedi.</b> {okuyucuDurum.slice(5)}
+            <div className="dugmeler sol"><button type="button" className="ikincil" onClick={okuyucuBaslat}><Simge ad="yenile" />Tekrar dene</button></div>
+          </div>
         </div>
       )}
-      <main>
+      <main key={sinav.ekran}>
         {sinav.ekran === 'ayar' && <AyarEkrani {...ortak} devamSor={devamSor} />}
         {sinav.ekran === 'anahtar' && <AnahtarEkrani {...ortak} />}
         {sinav.ekran === 'okut' && <OkutEkrani {...ortak} />}
         {sinav.ekran === 'sonuc' && <SonucEkrani {...ortak} />}
       </main>
+    </div>
+  )
+}
+
+function EkranBaslik({ adim, baslik, children }) {
+  return (
+    <div className="ekran-baslik">
+      <span className="ust-baslik">Adım {adim} / 4</span>
+      <h1>{baslik}</h1>
+      {children && <p className="aciklama">{children}</p>}
     </div>
   )
 }
@@ -83,52 +129,63 @@ function AyarEkrani({ sinav, setSinav, git, devamSor }) {
   return (
     <section className="kart">
       {goster && (
-        <div className="bilgi-kutu">
-          <b>Yarım kalan sınav bulundu:</b> {sinav.ayar.sinavAdi || 'isimsiz sınav'}, {sinav.ogrenciler.length} öğrenci okunmuş.
-          <div className="dugmeler sol">
-            <button type="button" className="birincil" onClick={() => { setGoster(false); git(Object.keys(sinav.anahtarlar).length ? 'okut' : 'anahtar') }}>Kaldığım yerden devam et</button>
-            <button type="button" className="ikincil" onClick={() => { if (confirm('Yarım kalan sınav silinsin mi? (Önce Excel almadıysanız veriler kaybolur.)')) { setSinav(yeniSinav()); setGoster(false) } }}>Yeni sınav başlat</button>
+        <div className="bilgi-kutu devam-kutu">
+          <span className="kutu-simge"><Simge ad="bilgi" /></span>
+          <div>
+            <b>Yarım kalan sınav bulundu:</b> {sinav.ayar.sinavAdi || 'isimsiz sınav'}, {sinav.ogrenciler.length} öğrenci okunmuş.
+            <div className="dugmeler sol">
+              <button type="button" className="birincil" onClick={() => { setGoster(false); git(Object.keys(sinav.anahtarlar).length ? 'okut' : 'anahtar') }}>Kaldığım yerden devam et<Simge ad="ileri" /></button>
+              <button type="button" className="ikincil" onClick={() => { if (confirm('Yarım kalan sınav silinsin mi? (Önce Excel almadıysanız veriler kaybolur.)')) { setSinav(yeniSinav()); setGoster(false) } }}>Yeni sınav başlat</button>
+            </div>
           </div>
         </div>
       )}
-      <h1>Sınav ayarları</h1>
-      <label className="alan">Sınav adı (isteğe bağlı)
+      <EkranBaslik adim={1} baslik="Sınav ayarları">Puanlama kurallarını belirleyin; okutma sırasında her kâğıt bu kurallarla anında puanlanır.</EkranBaslik>
+      <label className="alan"><span className="alan-ad">Sınav adı <span className="alan-not">isteğe bağlı</span></span>
         <input value={a.sinavAdi} onChange={e => ayarla('sinavAdi', e.target.value)} placeholder="Örn. 9-A Matematik 1. Yazılı" />
       </label>
-      {sinav.ogrenciler.length > 0 && <div className="uyari-kutu">Bu sınavda {sinav.ogrenciler.length} kâğıt okundu. Ayarları değiştirirseniz tüm puanlar yeniden hesaplanır.</div>}
-      <label className="alan">Soru sayısı (1-80)
-        <input type="number" min="1" max="80" inputMode="numeric" value={a.soruSayisi || ''}
-          onChange={e => {
-            const ham = e.target.value
-            if (ham === '') { ayarla('soruSayisi', ''); return }
-            const n = parseInt(ham, 10)
-            if (Number.isNaN(n)) return
-            ayarla('soruSayisi', Math.max(0, Math.min(80, n)))
-          }} />
-      </label>
-      <label className="alan">Her soru kaç puan?
-        <div className="yan-yana">
-          <input type="number" step="0.01" min="0" inputMode="decimal" value={a.soruPuani || ''} placeholder={gecerli ? `Otomatik: ${sayiTR(100 / N)}` : ''}
-            onChange={e => ayarla('soruPuani', parseFloat(String(e.target.value).replace(',', '.')) || 0)} />
-          <span className="kucuk-not">Boş bırakılırsa toplam 100 olacak şekilde hesaplanır. Toplam: <b>{gecerli ? sayiTR(soruPuani(a) * N) : '-'}</b></span>
-        </div>
-      </label>
-      <label className="alan">Yanlışlar doğruyu götürsün mü?
-        <select value={a.yanlisGoturur} onChange={e => ayarla('yanlisGoturur', Number(e.target.value))}>
-          <option value={0}>Hayır</option>
-          <option value={4}>4 yanlış 1 doğruyu götürsün</option>
-          <option value={3}>3 yanlış 1 doğruyu götürsün</option>
-        </select>
-      </label>
-      <label className="alan">Birden fazla şık işaretlenmiş soru
-        <select value={a.ciftIsaret} onChange={e => ayarla('ciftIsaret', e.target.value)}>
-          <option value="yanlis">Yanlış sayılsın</option>
-          <option value="bos">Boş sayılsın</option>
-        </select>
-      </label>
-      <div className="dugmeler">
-        <a className="ikincil dugme" href="/optik_formu.pdf" download>📄 Boş optik formu indir (PDF)</a>
-        <button type="button" className="birincil" disabled={!gecerli} onClick={() => git('anahtar')}>Devam: Cevap anahtarı →</button>
+      {sinav.ogrenciler.length > 0 && <div className="uyari-kutu"><Simge ad="uyari" />Bu sınavda {sinav.ogrenciler.length} kâğıt okundu. Ayarları değiştirirseniz tüm puanlar yeniden hesaplanır.</div>}
+      <div className="alan-izgara">
+        <label className="alan"><span className="alan-ad">Soru sayısı <span className="alan-not">1–80</span></span>
+          <input type="number" min="1" max="80" inputMode="numeric" value={a.soruSayisi || ''}
+            onChange={e => {
+              const ham = e.target.value
+              if (ham === '') { ayarla('soruSayisi', ''); return }
+              const n = parseInt(ham, 10)
+              if (Number.isNaN(n)) return
+              ayarla('soruSayisi', Math.max(0, Math.min(80, n)))
+            }} />
+        </label>
+        <label className="alan"><span className="alan-ad">Her soru kaç puan?</span>
+          <div className="ekli-alan">
+            <input type="number" step="0.01" min="0" inputMode="decimal" value={a.soruPuani || ''} placeholder={gecerli ? `Otomatik: ${sayiTR(100 / N)}` : ''}
+              onChange={e => ayarla('soruPuani', parseFloat(String(e.target.value).replace(',', '.')) || 0)} />
+            <span className="ek">puan</span>
+          </div>
+        </label>
+      </div>
+      <p className="alan-ipucu">
+        <span>Puan boş bırakılırsa toplam 100 olacak şekilde hesaplanır.</span>
+        <span className="toplam-rozet">Toplam: <b>{gecerli ? sayiTR(soruPuani(a) * N) : '-'}</b></span>
+      </p>
+      <div className="alan-izgara">
+        <label className="alan"><span className="alan-ad">Yanlışlar doğruyu götürsün mü?</span>
+          <select value={a.yanlisGoturur} onChange={e => ayarla('yanlisGoturur', Number(e.target.value))}>
+            <option value={0}>Hayır</option>
+            <option value={4}>4 yanlış 1 doğruyu götürsün</option>
+            <option value={3}>3 yanlış 1 doğruyu götürsün</option>
+          </select>
+        </label>
+        <label className="alan"><span className="alan-ad">Birden fazla şık işaretlenmiş soru</span>
+          <select value={a.ciftIsaret} onChange={e => ayarla('ciftIsaret', e.target.value)}>
+            <option value="yanlis">Yanlış sayılsın</option>
+            <option value="bos">Boş sayılsın</option>
+          </select>
+        </label>
+      </div>
+      <div className="dugmeler ayrik">
+        <a className="ikincil dugme" href="/optik_formu.pdf" download><Simge ad="dosya" />Boş optik formu indir (PDF)</a>
+        <button type="button" className="birincil" disabled={!gecerli} onClick={() => git('anahtar')}>Devam: Cevap anahtarı<Simge ad="ileri" /></button>
       </div>
     </section>
   )
@@ -168,19 +225,28 @@ function AnahtarEkrani({ sinav, setSinav, git, okuyucuDurum, yukleme }) {
 
   return (
     <section className="kart">
-      <h1>Cevap anahtarı</h1>
-      <p className="aciklama">Boş bir forma doğru cevapları işaretleyin, <b>CEVAP ANAHTARI</b> yuvarlağını ve kitapçık türünü kodlayın, sonra okutun.
-        Birden fazla kitapçık varsa her biri için ayrı anahtar okutun.</p>
+      <EkranBaslik adim={2} baslik="Cevap anahtarı">
+        Boş bir forma doğru cevapları işaretleyin, <b>CEVAP ANAHTARI</b> yuvarlağını ve kitapçık türünü kodlayın, sonra okutun.
+        Birden fazla kitapçık varsa her biri için ayrı anahtar okutun.
+      </EkranBaslik>
       {Object.keys(anahtarlar).length > 0 && (
         <div className="anahtar-liste">
           {Object.entries(anahtarlar).sort().map(([k, a]) => (
             <div key={k} className="anahtar-kart">
-              <div><b>Kitapçık {k}</b> {eksikAnahtar.includes(k) && <span className="etiket kirmizi">eksik soru var</span>}</div>
-              <div className="anahtar-harfler">{a.slice(0, N).map((x, i) => <span key={i} title={`${i + 1}. soru`}>{x == null ? '·' : SIKLAR[x]}</span>)}</div>
-              <div className="dugmeler sol">
-                <button type="button" className="ikincil" onClick={() => setDuzenle({ baslangic: a, kitapcik: k, uyarilar: [] })}>Düzenle</button>
-                <button type="button" className="ikincil tehlike" onClick={() => { if (confirm(`${k} kitapçığı anahtarı silinsin mi?`)) setSinav(s => { const y = { ...s.anahtarlar }; delete y[k]; return { ...s, anahtarlar: y } }) }}>Sil</button>
+              <div className="anahtar-kart-ust">
+                <span className="kitapcik-rozet">{k}</span>
+                <div className="anahtar-kart-baslik">
+                  <b>Kitapçık {k}</b>
+                  {eksikAnahtar.includes(k)
+                    ? <span className="etiket kirmizi">eksik soru var</span>
+                    : <span className="etiket yesil"><Simge ad="onay" boyut={12} kalinlik={2.6} />{N} soru tamam</span>}
+                </div>
+                <div className="anahtar-kart-dugmeler">
+                  <button type="button" className="ikincil kucuk" onClick={() => setDuzenle({ baslangic: a, kitapcik: k, uyarilar: [] })}><Simge ad="kalem" boyut={16} />Düzenle</button>
+                  <button type="button" className="ikincil kucuk tehlike" onClick={() => { if (confirm(`${k} kitapçığı anahtarı silinsin mi?`)) setSinav(s => { const y = { ...s.anahtarlar }; delete y[k]; return { ...s, anahtarlar: y } }) }}><Simge ad="cop" boyut={16} />Sil</button>
+                </div>
               </div>
+              <div className="anahtar-harfler">{a.slice(0, N).map((x, i) => <span key={i} title={`${i + 1}. soru`} className={x == null ? 'bos' : ''}>{x == null ? '·' : SIKLAR[x]}</span>)}</div>
             </div>
           ))}
         </div>
@@ -188,23 +254,30 @@ function AnahtarEkrani({ sinav, setSinav, git, okuyucuDurum, yukleme }) {
       {kamera ? createPortal(
         <div className="kamera-ekran" role="dialog" aria-modal="true" aria-label="Kamera">
           <div className="kamera-ekran-ust">
-            <span className="kamera-ekran-baslik">Cevap anahtarı</span>
-            <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}>Kapat</button>
+            <span className="kamera-ekran-baslik"><Simge ad="anahtar" boyut={16} />Cevap anahtarı</span>
+            <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}><Simge ad="kapat" boyut={16} kalinlik={2.2} />Kapat</button>
           </div>
           <Kamera aktif={!duzenle} onKabul={okundu} ipucu="Cevap anahtarı kâğıdını okutun" />
         </div>,
         document.body,
       ) : (
-        <div className="dugmeler">
-          <button type="button" className="birincil" disabled={okuyucuDurum !== 'hazir'} onClick={() => setKamera(true)}>
-            {okuyucuDurum === 'hazir' ? '📷 Anahtarı kamerayla okut' : okuyucuDurum === 'yukleniyor' ? `Okuyucu hazırlanıyor… %${Math.round(yukleme.oran * 100)}` : 'Okuyucu yüklenemedi'}
+        <div className="eylem-izgara">
+          <button type="button" className="eylem-karti birincil" disabled={okuyucuDurum !== 'hazir'} onClick={() => setKamera(true)}>
+            <span className="eylem-simge"><Simge ad="kamera" boyut={22} /></span>
+            <span className="eylem-metin">
+              <b>{okuyucuDurum === 'hazir' ? 'Anahtarı kamerayla okut' : okuyucuDurum === 'yukleniyor' ? `Okuyucu hazırlanıyor… %${Math.round(yukleme.oran * 100)}` : 'Okuyucu yüklenemedi'}</b>
+              <small>Doldurulmuş anahtar formunu kameraya gösterin</small>
+            </span>
           </button>
-          <button type="button" className="ikincil" onClick={() => setDuzenle({ baslangic: null, kitapcik: 'A', uyarilar: [] })}>⌨️ Elle gir</button>
+          <button type="button" className="eylem-karti ikincil" onClick={() => setDuzenle({ baslangic: null, kitapcik: 'A', uyarilar: [] })}>
+            <span className="eylem-simge"><Simge ad="klavye" boyut={22} /></span>
+            <span className="eylem-metin"><b>Elle gir</b><small>Cevapları ekrandan işaretleyin</small></span>
+          </button>
         </div>
       )}
-      <div className="dugmeler">
-        <button type="button" className="ikincil" onClick={() => git('ayar')}>← Ayarlar</button>
-        <button type="button" className="birincil" disabled={!Object.keys(anahtarlar).length || eksikAnahtar.length > 0} onClick={() => git('okut')}>Devam: Öğrenci kâğıtlarını okut →</button>
+      <div className="dugmeler ayrik">
+        <button type="button" className="ikincil" onClick={() => git('ayar')}><Simge ad="geri" />Ayarlar</button>
+        <button type="button" className="birincil" disabled={!Object.keys(anahtarlar).length || eksikAnahtar.length > 0} onClick={() => git('okut')}>Devam: Öğrenci kâğıtlarını okut<Simge ad="ileri" /></button>
       </div>
       {duzenle && (
         <AnahtarDuzenle baslangic={duzenle.baslangic} soruSayisi={N} kitapcikVarsayilan={duzenle.kitapcik}
@@ -220,16 +293,17 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
   const { ayar, anahtarlar, ogrenciler } = sinav
   const N = ayar.soruSayisi
   const [bekleyen, setBekleyen] = useState([])        // sırada bekleyen kontrol/çakışma işleri
-  const [bildirim, setBildirim] = useState(null)       // {tur, metin}
+  const [bildirim, setBildirim] = useState(null)       // {tur, metin, ad?, puan?}
   const [nasil, setNasil] = useState(() => !ogrenciler.length)
   const [detay, setDetay] = useState(null)
   const [kamera, setKamera] = useState(false)
   const sinavRef = useRef(sinav); sinavRef.current = sinav
 
   const aktifIs = bekleyen[0]
-  const bildir = (tur, metin) => { setBildirim({ tur, metin, zaman: Date.now() }); (tur === 'tamam' ? basariSesi : uyariSesi)() }
+  const bildir = (tur, metin, ek = {}) => { setBildirim({ tur, metin, zaman: Date.now(), ...ek }); (tur === 'tamam' ? basariSesi : uyariSesi)() }
 
   const puanli = useMemo(() => ogrenciler.map((o, i) => ({ o, i, p: anahtarlar[o.kitapcik] ? puanla(o, anahtarlar[o.kitapcik], ayar) : null })), [ogrenciler, anahtarlar, ayar])
+  const enYuksekPuan = soruPuani(ayar) * N
 
   function kaydetKayit(kayit, cakisma = null) {
     const s = sinavRef.current
@@ -240,7 +314,7 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
     }
     setSinav(x => ({ ...x, ogrenciler: [...x.ogrenciler, kayit] }))
     const p = puanla(kayit, s.anahtarlar[kayit.kitapcik], s.ayar)
-    bildir('tamam', `✅ ${adSoyad(kayit)} — ${sayiTR(p.puan)}`)
+    bildir('tamam', `✅ ${adSoyad(kayit)} — ${sayiTR(p.puan)}`, { ad: adSoyad(kayit), puan: sayiTR(p.puan) })
   }
 
   const okundu = useCallback(async (r) => {
@@ -265,44 +339,76 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
     return () => { document.body.style.overflow = onceki }
   }, [kamera])
 
+  const sonId = ogrenciler.length ? ogrenciler[ogrenciler.length - 1].id : null
+
   return (
     <section className="okut">
       <div className="okut-ust">
-        <div>
-          <b>{ayar.sinavAdi || 'Sınav'}</b> · {N} soru · soru başı {sayiTR(soruPuani(ayar))} puan
+        <div className="okut-ozet">
+          <span className="ust-baslik">Adım 3 / 4</span>
+          <b>{ayar.sinavAdi || 'Sınav'}</b>
+          <div className="cipler">
+            <span className="cip">{N} soru</span>
+            <span className="cip">soru başı {sayiTR(soruPuani(ayar))} puan</span>
+            {Number(ayar.yanlisGoturur) > 0 && <span className="cip">{ayar.yanlisGoturur} yanlış 1 doğru</span>}
+            <span className="cip">{Object.keys(anahtarlar).sort().join(', ')} kitapçık</span>
+          </div>
         </div>
-        <button type="button" className="kucuk-dugme" onClick={() => setNasil(v => !v)}>{nasil ? 'Kapat' : 'Nasıl okutulur?'}</button>
+        <button type="button" className="kucuk-dugme" onClick={() => setNasil(v => !v)}>
+          <Simge ad={nasil ? 'kapat' : 'soru'} boyut={15} />{nasil ? 'Kapat' : 'Nasıl okutulur?'}
+        </button>
       </div>
       {nasil && (
         <div className="nasil">
           <b>Nasıl okutulur?</b>
           <ol>
             <li>Kâğıdı düz bir masaya koyun, telefonu kâğıda paralel tutun.</li>
-            <li><b>Dört köşedeki kare işaretin</b> hepsi ekranda görünsün. Kâğıt kesikli çerçeveyi doldursun.</li>
-            <li>Telefonun ya da elinizin gölgesi kâğıda düşmesin. Işık azsa 🔦 düğmesini kullanın.</li>
+            <li><b>Dört köşedeki kare işaretin</b> hepsi ekranda görünsün. Kâğıt kılavuz çerçeveyi doldursun.</li>
+            <li>Telefonun ya da elinizin gölgesi kâğıda düşmesin. Işık azsa <b>Işık</b> düğmesini kullanın.</li>
             <li>Köşeler yeşil olunca kıpırdamadan bekleyin. Okuyucu kâğıdı <b>iki kez</b> okuyup karşılaştırır.</li>
-            <li>“✅ Ad Soyad — puan” görününce sıradaki kâğıdı üstüne koyun. Aynı kâğıt iki kez sayılmaz.</li>
+            <li>Ad soyad ve puan ekranda görününce sıradaki kâğıdı üstüne koyun. Aynı kâğıt iki kez sayılmaz.</li>
             <li>Okuyucu emin olamadığı bir şey görürse durur ve size sorar.</li>
           </ol>
         </div>
       )}
-      <div className="dugmeler">
-        <button type="button" className="birincil" disabled={okuyucuDurum !== 'hazir'} onClick={() => setKamera(true)}>
-          {okuyucuDurum === 'hazir' ? '📷 Kamerayla okut' : okuyucuDurum === 'yukleniyor' ? 'Okuyucu hazırlanıyor…' : 'Okuyucu yüklenemedi'}
-        </button>
-        <button type="button" className="ikincil" onClick={() => git('anahtar')}>← Anahtar</button>
-        <button type="button" className="birincil" onClick={() => git('sonuc')}>Bitti → Excel</button>
+      <button type="button" className="birincil kahraman" disabled={okuyucuDurum !== 'hazir'} onClick={() => setKamera(true)}>
+        <span className="kahraman-simge"><Simge ad="kamera" boyut={24} /></span>
+        <span className="kahraman-metin">
+          <b>{okuyucuDurum === 'hazir' ? 'Kamerayla okut' : okuyucuDurum === 'yukleniyor' ? 'Okuyucu hazırlanıyor…' : 'Okuyucu yüklenemedi'}</b>
+          <small>{ogrenciler.length ? 'Sıradaki kâğıtlarla devam edin' : 'Kâğıtları sırayla kameraya gösterin'}</small>
+        </span>
+        <Simge ad="ileri" boyut={20} className="kahraman-ok" />
+      </button>
+      <div className="dugmeler ayrik">
+        <button type="button" className="ikincil" onClick={() => git('anahtar')}><Simge ad="geri" />Anahtar</button>
+        <button type="button" className="ikincil vurgulu" onClick={() => git('sonuc')}>Bitti<Simge ad="ileri" boyut={16} />Excel</button>
       </div>
 
       {kamera && createPortal(
         <div className={'kamera-ekran' + (aktifIs ? ' kamera-ekran-beklemede' : '')} role="dialog" aria-modal="true" aria-label="Kamera" aria-hidden={!!aktifIs}>
           <div className="kamera-ekran-ust">
-            <span className="kamera-ekran-baslik">{ogrenciler.length} öğrenci okundu</span>
-            <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}>Kapat</button>
+            <span className="kamera-ekran-baslik"><span className="sayi-rozet">{ogrenciler.length}</span>öğrenci okundu</span>
+            <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}><Simge ad="kapat" boyut={16} kalinlik={2.2} />Kapat</button>
           </div>
           <div className="okut-kamera">
             <Kamera aktif={!aktifIs && okuyucuDurum === 'hazir'} onKabul={okundu} />
-            {bildirim && sonBildirimYasi < 5000 && <div className={'bildirim ' + bildirim.tur}>{bildirim.metin}</div>}
+            {bildirim && sonBildirimYasi < 5000 && (
+              <div key={bildirim.zaman} className={'bildirim ' + bildirim.tur} role="status">
+                {bildirim.ad != null ? (
+                  <>
+                    <span className="bildirim-sr">{bildirim.metin}</span>
+                    <span className="bildirim-simge" aria-hidden="true"><Simge ad="onay" boyut={20} kalinlik={2.6} /></span>
+                    <span className="bildirim-ad" aria-hidden="true">{bildirim.ad}</span>
+                    <span className="bildirim-puan" aria-hidden="true">{bildirim.puan}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="bildirim-simge" aria-hidden="true"><Simge ad={bildirim.tur === 'tamam' ? 'onay' : 'uyari'} boyut={20} kalinlik={2.2} /></span>
+                    <span className="bildirim-metin">{bildirim.metin.replace(/^✅\s*/, '')}</span>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         </div>,
         document.body,
@@ -313,13 +419,23 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
           <span>SINAV SONUÇLARI</span>
           <span className="sayac">{ogrenciler.length} öğrenci</span>
         </div>
-        {!ogrenciler.length && <div className="bos-liste">Henüz kâğıt okunmadı.</div>}
+        {!ogrenciler.length && (
+          <div className="bos-liste">
+            <span className="bos-simge"><Simge ad="kagit" boyut={26} kalinlik={1.5} /></span>
+            <b>Henüz kâğıt okunmadı.</b>
+            <small>Okunan her kâğıt puanıyla birlikte burada görünür.</small>
+          </div>
+        )}
         <ol className="sonuc-listesi" reversed={false}>
           {[...puanli].reverse().map(({ o, i, p }) => (
-            <li key={o.id} onClick={() => setDetay(i)} className={o.notlar?.length ? 'notlu' : ''}>
+            <li key={o.id} onClick={() => setDetay(i)} className={(o.notlar?.length ? 'notlu' : '') + (o.id === sonId ? ' yeni' : '')}>
               <span className="sira">{i + 1}.</span>
-              <span className="isim">{adSoyad(o)}<small>{o.no ? `No ${o.no} · ` : ''}{o.kitapcik}</small></span>
-              <span className="puan">{p ? sayiTR(p.puan) : '—'}</span>
+              <span className="avatar" aria-hidden="true">{basHarf(o)}</span>
+              <span className="isim"><span className="isim-ad">{adSoyad(o)}</span><small>{o.no ? `No ${o.no} · ` : ''}{o.kitapcik}</small></span>
+              <span className="puan-kutu">
+                <span className="puan">{p ? sayiTR(p.puan) : '—'}</span>
+                {p && <span className="puan-cubuk" aria-hidden="true"><span style={{ width: `${Math.min(100, enYuksekPuan ? p.puan / enYuksekPuan * 100 : 0)}%` }} /></span>}
+              </span>
             </li>
           ))}
         </ol>
@@ -359,22 +475,29 @@ function CakismaPenceresi({ is, ogrenciler, anahtarlar, ayar, onSec }) {
   const py = anahtarlar[is.kayit.kitapcik] ? puanla(is.kayit, anahtarlar[is.kayit.kitapcik], ayar) : null
   return (
     <div className="pencere-arka">
-      <div className="pencere">
-        <h2>⚠️ {is.t.tur === 'ayniNo' ? 'Aynı numara daha önce okundu' : 'Aynı isim daha önce okundu'}</h2>
-        <table className="kiyas">
-          <tbody>
-            <tr><th></th><th>Önceki ({is.t.index + 1}. sıra)</th><th>Yeni okunan</th></tr>
-            <tr><td>Ad Soyad</td><td>{adSoyad(eski)}</td><td>{adSoyad(is.kayit)}</td></tr>
-            <tr><td>Numara</td><td>{eski.no || '-'}</td><td>{is.kayit.no || '-'}</td></tr>
-            <tr><td>Kitapçık</td><td>{eski.kitapcik}</td><td>{is.kayit.kitapcik}</td></tr>
-            <tr><td>Puan</td><td>{pe ? sayiTR(pe.puan) : '-'}</td><td>{py ? sayiTR(py.puan) : '-'}</td></tr>
-          </tbody>
-        </table>
-        <p className="aciklama">İki kâğıdın cevapları farklı. Aynı öğrencinin kâğıdı yeniden mi okutuldu, yoksa iki öğrenci aynı numarayı mı yazdı?</p>
-        <div className="dugmeler dikey">
-          <button type="button" className="birincil" onClick={() => onSec('degistir')}>Öncekini sil, yenisini kaydet</button>
-          <button type="button" className="ikincil" onClick={() => onSec('ikisi')}>İkisini de kaydet (farklı öğrenciler)</button>
-          <button type="button" className="ikincil" onClick={() => onSec('iptal')}>Yeni okunanı kaydetme</button>
+      <div className="pencere" role="dialog" aria-modal="true">
+        <div className="pencere-bas">
+          <span className="pencere-simge uyari"><Simge ad="uyari" /></span>
+          <h2>{is.t.tur === 'ayniNo' ? 'Aynı numara daha önce okundu' : 'Aynı isim daha önce okundu'}</h2>
+        </div>
+        <div className="pencere-govde">
+          <table className="kiyas">
+            <tbody>
+              <tr><th></th><th>Önceki ({is.t.index + 1}. sıra)</th><th>Yeni okunan</th></tr>
+              <tr><td>Ad Soyad</td><td>{adSoyad(eski)}</td><td>{adSoyad(is.kayit)}</td></tr>
+              <tr><td>Numara</td><td>{eski.no || '-'}</td><td>{is.kayit.no || '-'}</td></tr>
+              <tr><td>Kitapçık</td><td>{eski.kitapcik}</td><td>{is.kayit.kitapcik}</td></tr>
+              <tr><td>Puan</td><td>{pe ? sayiTR(pe.puan) : '-'}</td><td>{py ? sayiTR(py.puan) : '-'}</td></tr>
+            </tbody>
+          </table>
+          <p className="aciklama">İki kâğıdın cevapları farklı. Aynı öğrencinin kâğıdı yeniden mi okutuldu, yoksa iki öğrenci aynı numarayı mı yazdı?</p>
+        </div>
+        <div className="pencere-alt">
+          <div className="dugmeler dikey">
+            <button type="button" className="birincil" onClick={() => onSec('degistir')}>Öncekini sil, yenisini kaydet</button>
+            <button type="button" className="ikincil" onClick={() => onSec('ikisi')}>İkisini de kaydet (farklı öğrenciler)</button>
+            <button type="button" className="ikincil" onClick={() => onSec('iptal')}>Yeni okunanı kaydetme</button>
+          </div>
         </div>
       </div>
     </div>
@@ -389,35 +512,52 @@ function OgrenciDetay({ o, sira, ayar, anahtarlar, onKapat, onGuncelle, onSil })
   const degisti = ad !== o.ad || soyad !== o.soyad || no !== o.no || kitapcik !== o.kitapcik
   return (
     <div className="pencere-arka" onClick={onKapat}>
-      <div className="pencere genis" onClick={e => e.stopPropagation()}>
-        <h2>{sira}. {adSoyad(o)}</h2>
-        <div className="form-izgara">
-          <label>Ad<input value={ad} onChange={e => setAd(e.target.value.toLocaleUpperCase('tr-TR'))} /></label>
-          <label>Soyad<input value={soyad} onChange={e => setSoyad(e.target.value.toLocaleUpperCase('tr-TR'))} /></label>
-          <label>Numara<input value={no} inputMode="numeric" onChange={e => setNo(e.target.value.replace(/\D/g, ''))} /></label>
-          <label>Kitapçık<select value={kitapcik || ''} onChange={e => setKitapcik(e.target.value)}>
-            {Object.keys(anahtarlar).map(k => <option key={k} value={k}>{k}</option>)}
-          </select></label>
+      <div className="pencere genis" role="dialog" aria-modal="true" onClick={e => e.stopPropagation()}>
+        <div className="pencere-bas">
+          <span className="avatar buyuk" aria-hidden="true">{basHarf(o)}</span>
+          <h2>{sira}. {adSoyad(o)}</h2>
+          <button type="button" className="pencere-kapat" aria-label="Kapat" onClick={onKapat}><Simge ad="kapat" boyut={18} /></button>
         </div>
-        {p && <p><b>Doğru {p.d} · Yanlış {p.y} · Boş {p.b} · Net {sayiTR(p.net)} · Puan {sayiTR(p.puan)}</b></p>}
-        <div className="cevap-izgara">
-          {Array.from({ length: ayar.soruSayisi }, (_, q) => {
-            const c = o.cevaplar[q]
-            const d = p ? p.detay[q] : 'b'
-            return (
-              <div key={q} className={'cevap-hucre ' + d}>
-                <small>{q + 1}</small>
-                <b>{c.t === 'c' ? SIKLAR[c.k] : c.t === 'x' ? c.ks.map(k => SIKLAR[k]).join('') : '–'}</b>
-                {a && d !== 'd' && <small className="dogrusu">{SIKLAR[a[q]]}</small>}
-              </div>
-            )
-          })}
+        <div className="pencere-govde">
+          <div className="form-izgara">
+            <label>Ad<input value={ad} onChange={e => setAd(e.target.value.toLocaleUpperCase('tr-TR'))} /></label>
+            <label>Soyad<input value={soyad} onChange={e => setSoyad(e.target.value.toLocaleUpperCase('tr-TR'))} /></label>
+            <label>Numara<input value={no} inputMode="numeric" onChange={e => setNo(e.target.value.replace(/\D/g, ''))} /></label>
+            <label>Kitapçık<select value={kitapcik || ''} onChange={e => setKitapcik(e.target.value)}>
+              {Object.keys(anahtarlar).map(k => <option key={k} value={k}>{k}</option>)}
+            </select></label>
+          </div>
+          {p && (
+            <div className="detay-ozet">
+              <div className="d"><span>{p.d}</span>Doğru</div>
+              <div className="y"><span>{p.y}</span>Yanlış</div>
+              <div className="b"><span>{p.b}</span>Boş</div>
+              <div><span>{sayiTR(p.net)}</span>Net</div>
+              <div className="vurgu"><span>{sayiTR(p.puan)}</span>Puan</div>
+            </div>
+          )}
+          <div className="cevap-izgara">
+            {Array.from({ length: ayar.soruSayisi }, (_, q) => {
+              const c = o.cevaplar[q]
+              const d = p ? p.detay[q] : 'b'
+              return (
+                <div key={q} className={'cevap-hucre ' + d}>
+                  <small>{q + 1}</small>
+                  <b>{c.t === 'c' ? SIKLAR[c.k] : c.t === 'x' ? c.ks.map(k => SIKLAR[k]).join('') : '–'}</b>
+                  {a && d !== 'd' && <small className="dogrusu">{SIKLAR[a[q]]}</small>}
+                </div>
+              )
+            })}
+          </div>
+          {o.notlar?.length > 0 && <p className="kucuk-not">Not: {o.notlar.join('; ')}</p>}
         </div>
-        {o.notlar?.length > 0 && <p className="kucuk-not">Not: {o.notlar.join('; ')}</p>}
-        <div className="dugmeler">
-          <button type="button" className="ikincil tehlike" onClick={() => { if (confirm('Bu öğrencinin kaydı silinsin mi?')) onSil() }}>Kaydı sil</button>
-          <button type="button" className="ikincil" onClick={onKapat}>Kapat</button>
-          <button type="button" className="birincil" disabled={!degisti} onClick={() => { onGuncelle({ ...o, ad, soyad, no, kitapcik }); onKapat() }}>Değişiklikleri kaydet</button>
+        <div className="pencere-alt">
+          <div className="dugmeler">
+            <button type="button" className="ikincil tehlike" onClick={() => { if (confirm('Bu öğrencinin kaydı silinsin mi?')) onSil() }}><Simge ad="cop" boyut={16} />Kaydı sil</button>
+            <span className="bosluk" />
+            <button type="button" className="ikincil" onClick={onKapat}>Kapat</button>
+            <button type="button" className="birincil" disabled={!degisti} onClick={() => { onGuncelle({ ...o, ad, soyad, no, kitapcik }); onKapat() }}>Değişiklikleri kaydet</button>
+          </div>
         </div>
       </div>
     </div>
@@ -425,6 +565,27 @@ function OgrenciDetay({ o, sira, ayar, anahtarlar, onKapat, onGuncelle, onSil })
 }
 
 // =====================================================================
+function Dagilim({ puanlar, enYuksek }) {
+  // Puan dağılımı: en yüksek alınabilecek puana göre 10 dilim
+  const dilim = Array(10).fill(0)
+  for (const p of puanlar) dilim[Math.min(9, Math.max(0, Math.floor((enYuksek ? p / enYuksek : 0) * 10)))]++
+  const maks = Math.max(1, ...dilim)
+  return (
+    <div className="dagilim" role="img" aria-label="Puan dağılımı">
+      <div className="dagilim-baslik"><Simge ad="grafik" boyut={16} />Puan dağılımı</div>
+      <div className="dagilim-cubuklar">
+        {dilim.map((n, i) => (
+          <div key={i} className="dagilim-sutun" title={`${sayiTR(enYuksek * i / 10, 0)}–${sayiTR(enYuksek * (i + 1) / 10, 0)}: ${n} öğrenci`}>
+            <span className="dagilim-sayi">{n || ''}</span>
+            <span className="dagilim-cubuk" style={{ height: `${n ? Math.max(8, n / maks * 100) : 3}%` }} data-dolu={n ? '1' : '0'} />
+          </div>
+        ))}
+      </div>
+      <div className="dagilim-eksen"><span>0</span><span>{sayiTR(enYuksek / 2, 0)}</span><span>{sayiTR(enYuksek, 0)}</span></div>
+    </div>
+  )
+}
+
 function SonucEkrani({ sinav, setSinav, git }) {
   const { ayar, anahtarlar, ogrenciler } = sinav
   const [eposta, setEposta] = useState(() => { try { return localStorage.getItem('optik-okuyucu.eposta') || '' } catch { return '' } })
@@ -435,6 +596,10 @@ function SonucEkrani({ sinav, setSinav, git }) {
   const puanlar = puanli.filter(x => x.p).map(x => x.p.puan)
   const ort = puanlar.length ? puanlar.reduce((a, b) => a + b, 0) / puanlar.length : 0
   const gorunen = [...puanli].sort((a, b) => sirala === 'puan' ? (b.p?.puan ?? -1) - (a.p?.puan ?? -1) : sirala === 'isim' ? adSoyad(a.o).localeCompare(adSoyad(b.o), 'tr') : a.i - b.i)
+  const enYuksekPuan = soruPuani(ayar) * ayar.soruSayisi
+
+  // Excel modülünü ekran açılır açılmaz arka planda hazırla: düğmeye basınca beklemeden oluşsun
+  useEffect(() => { import('./excel.js').catch(() => {}) }, [])
 
   async function dosya() {
     const { excelOlustur, dosyaAdi } = await import('./excel.js')
@@ -487,52 +652,71 @@ function SonucEkrani({ sinav, setSinav, git }) {
 
   return (
     <section className="kart">
-      <h1>Sonuçlar</h1>
+      <EkranBaslik adim={4} baslik="Sonuçlar">{ayar.sinavAdi || 'Sınav'} · {ayar.soruSayisi} soru</EkranBaslik>
       <div className="istatistik">
         <div><span>{ogrenciler.length}</span>öğrenci</div>
-        <div><span>{sayiTR(ort)}</span>ortalama</div>
+        <div className="vurgu"><span>{sayiTR(ort)}</span>ortalama</div>
         <div><span>{puanlar.length ? sayiTR(Math.max(...puanlar)) : '-'}</span>en yüksek</div>
         <div><span>{puanlar.length ? sayiTR(Math.min(...puanlar)) : '-'}</span>en düşük</div>
       </div>
+      {puanlar.length > 0 && <Dagilim puanlar={puanlar} enYuksek={enYuksekPuan} />}
 
-      <form className="eposta" onSubmit={gonder}>
-        <label className="alan">Excel'i e-postayla gönder
-          <div className="yan-yana">
-            <input type="email" inputMode="email" autoComplete="email" placeholder="ornek@okul.k12.tr" value={eposta} onChange={e => setEposta(e.target.value)} />
-            <button type="submit" className="birincil" disabled={mesgul || !ogrenciler.length}>📧 Gönder</button>
-          </div>
-        </label>
-      </form>
-      <div className="dugmeler sol">
-        <button type="button" className="ikincil" disabled={mesgul || !ogrenciler.length} onClick={indir}>⬇️ Excel'i indir</button>
-        {typeof navigator !== 'undefined' && navigator.share && <button type="button" className="ikincil" disabled={mesgul || !ogrenciler.length} onClick={paylas}>📤 Paylaş</button>}
+      <div className="aktar-kart">
+        <form className="eposta" onSubmit={gonder}>
+          <label className="alan"><span className="alan-ad">Excel'i e-postayla gönder</span>
+            <div className="yan-yana">
+              <div className="simgeli-alan">
+                <Simge ad="posta" />
+                <input type="email" inputMode="email" autoComplete="email" placeholder="ornek@okul.k12.tr" value={eposta} onChange={e => setEposta(e.target.value)} />
+              </div>
+              <button type="submit" className="birincil" disabled={mesgul || !ogrenciler.length}>{mesgul ? <span className="donen kucuk" aria-hidden="true" /> : <Simge ad="posta" />}Gönder</button>
+            </div>
+          </label>
+        </form>
+        <div className="dugmeler sol">
+          <button type="button" className="ikincil" disabled={mesgul || !ogrenciler.length} onClick={indir}><Simge ad="indir" />Excel'i indir</button>
+          {typeof navigator !== 'undefined' && navigator.share && <button type="button" className="ikincil" disabled={mesgul || !ogrenciler.length} onClick={paylas}><Simge ad="paylas" />Paylaş</button>}
+        </div>
+        {durum && <div className={durum.tur === 'hata' ? 'hata-kutu' : durum.tur === 'tamam' ? 'basari-kutu' : 'bilgi-kutu'}><Simge ad={durum.tur === 'hata' ? 'uyari' : durum.tur === 'tamam' ? 'onayDaire' : 'bilgi'} /><span>{durum.metin.replace(/^✅\s*/, '')}</span></div>}
       </div>
-      {durum && <div className={durum.tur === 'hata' ? 'hata-kutu' : durum.tur === 'tamam' ? 'basari-kutu' : 'bilgi-kutu'}>{durum.metin}</div>}
 
       <div className="liste-kart">
         <div className="liste-baslik">
           <span>SINAV SONUÇLARI</span>
-          <select value={sirala} onChange={e => setSirala(e.target.value)}>
-            <option value="sira">Okutma sırası</option>
-            <option value="puan">Puana göre</option>
-            <option value="isim">İsme göre</option>
-          </select>
+          <label className="secici"><Simge ad="sirala" boyut={15} />
+            <select value={sirala} onChange={e => setSirala(e.target.value)} aria-label="Sıralama">
+              <option value="sira">Okutma sırası</option>
+              <option value="puan">Puana göre</option>
+              <option value="isim">İsme göre</option>
+            </select>
+          </label>
         </div>
+        {!ogrenciler.length && (
+          <div className="bos-liste">
+            <span className="bos-simge"><Simge ad="kisiler" boyut={26} kalinlik={1.5} /></span>
+            <b>Henüz öğrenci yok.</b>
+            <small>Okutma ekranında kâğıtları okuttukça sonuçlar burada toplanır.</small>
+          </div>
+        )}
         <ol className="sonuc-listesi">
           {gorunen.map(({ o, i, p }, j) => (
             <li key={o.id}>
               <span className="sira">{(sirala === 'sira' ? i : j) + 1}.</span>
-              <span className="isim">{adSoyad(o)}<small>{o.no ? `No ${o.no} · ` : ''}{o.kitapcik}{p ? ` · D${p.d} Y${p.y} B${p.b}` : ''}</small></span>
-              <span className="puan">{p ? sayiTR(p.puan) : '—'}</span>
+              <span className="avatar" aria-hidden="true">{basHarf(o)}</span>
+              <span className="isim"><span className="isim-ad">{adSoyad(o)}</span><small>{o.no ? `No ${o.no} · ` : ''}{o.kitapcik}{p ? ` · D${p.d} Y${p.y} B${p.b}` : ''}</small></span>
+              <span className="puan-kutu">
+                <span className="puan">{p ? sayiTR(p.puan) : '—'}</span>
+                {p && <span className="puan-cubuk" aria-hidden="true"><span style={{ width: `${Math.min(100, enYuksekPuan ? p.puan / enYuksekPuan * 100 : 0)}%` }} /></span>}
+              </span>
             </li>
           ))}
         </ol>
       </div>
-      <div className="dugmeler">
-        <button type="button" className="ikincil" onClick={() => git('okut')}>← Okutmaya dön</button>
+      <div className="dugmeler ayrik">
+        <button type="button" className="ikincil" onClick={() => git('okut')}><Simge ad="geri" />Okutmaya dön</button>
         <button type="button" className="ikincil tehlike" onClick={() => {
           if (confirm('Bu sınavın tüm verileri silinip yeni sınava başlanacak. Excel\'i aldınız mı?')) { depo.sil(); setSinav(yeniSinav()) }
-        }}>Yeni sınav</button>
+        }}><Simge ad="yenile" />Yeni sınav</button>
       </div>
     </section>
   )

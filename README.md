@@ -106,7 +106,7 @@ videosuyla canlı okuma, iş parçacığı olmayan tarayıcıda yedek yol, okuyu
 - El yazısı okunmaz; kodlama esastır (el yazısı sadece kontrol penceresinde öğretmene gösterilir).
 - Ad ve soyad 13'er harfe sığar; uzun adlar kesilir (listeden düzeltilebilir).
 - Veriler tarayıcıda durur: başka cihazda görünmez, tarayıcı verileri silinirse kaybolur. Sınav bitince Excel'i alın.
-- İlk açılışta ~4 MB okuyucu indirilir (sonra önbellekten gelir). Eski telefonlarda kâğıt başına 2–4 saniye sürebilir.
+- İlk açılışta ~4 MB okuyucu indirilir (sonra önbellekten gelir). Eski telefonlarda kâğıt başına birkaç saniye sürebilir.
 
 ## Sorun giderme
 
@@ -125,15 +125,37 @@ videosuyla canlı okuma, iş parçacığı olmayan tarayıcıda yedek yol, okuyu
 
 ```
 src/omr/okuyucu.js     okuma çekirdeği (OpenCV.js): köşe işareti, düzeltme, sabit noktalar, hizalama, işaret kararı
+src/omr/hizli-duzelt.js  perspektif düzeltmenin WebAssembly SIMD sürümü (OpenCV ile bit düzeyinde aynı; kaynak: arac/warp_simd.c)
 src/omr/worker.js      çekirdeği arka plan iş parçacığında çalıştırır (klasik worker, importScripts)
-src/omr/istemci.js     yükleme (ilerleme, zaman aşımı, ana ekran yedeği) ve çağrılar
+src/omr/istemci.js     yükleme (ilerleme, zaman aşımı, ana ekran yedeği, hızlı sürüm -> tek parça yedeği) ve çağrılar
 src/omr/geometri.json  form ölçüleri — arac/form_uret.py üretir (PDF ve referans görüntüyle birlikte)
-src/bilesenler/        Kamera (otomatik yakalama + çift okuma), Kontrol penceresi, Anahtar düzenleyici
+src/bilesenler/        Kamera (otomatik yakalama + çift okuma), Kontrol penceresi, Anahtar düzenleyici, Simge (ikonlar)
+src/yazitipi/          Geist yazı tipi (siteyle birlikte gelir, SIL OFL lisansı)
 src/mantik.js          puanlama, iki okumayı birleştirme, tekrar kontrolü
 src/excel.js           Excel çıktısı · api/eposta.js  e-posta sunucu fonksiyonu
-scripts/opencv-kopyala.mjs  derlemeden önce OpenCV'yi public/opencv/ altına kopyalar
+scripts/opencv-kopyala.mjs  derlemeden önce OpenCV'yi public/opencv/ altına kopyalar (+ hızlı iki parçalı sürüm)
 arac/                  form üretici, sahte kâğıt üretici ve tüm test araçları
 ```
+
+### Hız
+
+Okuma sonuçları değişmeden (aynı kâğıtlarda bayt bayt aynı çıktı) şu hızlandırmalar yapıldı:
+
+- **Okuyucu açılışı:** `opencv.js` içindeki gömülü WebAssembly kodu derlemede ayrı bir `.wasm` dosyasına çıkarılır; tarayıcı 13 MB'lık
+  metni ayrıştırıp çözmek zorunda kalmaz. Hızlı sürümde herhangi bir sorun olursa tek parça dosyaya otomatik dönülür.
+  Referans görüntü ve iş parçacığı indirme sırasında paralel hazırlanır.
+- **Okuyucu kurulumu:** referans görüntü döngüsünde her piksel için yeniden oluşturulan bellek görünümü döngü dışına alındı.
+- **Kâğıt başına okuma:** perspektif düzeltme WebAssembly SIMD ile ~4 kat hızlı. OpenCV'nin kendi kodunun işlem sırasını birebir
+  izler; okuyucu her açılışta sonucu OpenCV ile karşılaştırır, en küçük farkta (ya da SIMD olmayan tarayıcıda) OpenCV'ye döner.
+- **Arayüz:** yazı tipi siteyle birlikte gelir (Google Fonts beklenmez), indirme ilerlemesi ekranı her parçada yeniden çizmez,
+  kamera karesi için ayrı tuval (her okumada büyük bellek ayırma yok), Excel modülü sonuç ekranı açılınca önceden yüklenir.
+
+| Ölçüm (masaüstü, aynı makine) | Önce | Sonra |
+|---|---|---|
+| Okuyucu hazır (sayfa açılışından) | 2,4–3,1 sn | 0,7 sn |
+| Okuyucu kurulumu (`okuyucuOlustur`) | ~500 ms | ~90 ms |
+| Bir kâğıt okuma (`oku`, 242 kâğıt ort.) | 491 ms | 341 ms |
+| Perspektif düzeltme | ~210 ms | ~55 ms |
 
 ```bash
 npm install
@@ -146,7 +168,8 @@ python3 arac/form_uret.py                                    # formu / geometriy
 python3 arac/sentetik2.py /tmp/deneme 200 1 video,telefon,tarayici,whatsapp
 node arac/js_test.mjs /tmp/deneme                            # sessiz hata sayısını raporlar
 # tarayıcı testleri (playwright): önce `npm run build && npx vite preview`
-python3 arac/e2e_veri.py /tmp/e2e && python3 arac/e2e_test.py /tmp/e2e http://localhost:4173/
-python3 arac/kamera_video.py /tmp/e2e && python3 arac/kamera_test.py /tmp/e2e http://localhost:4173/
+python3 arac/e2e_veri.py /tmp/e2e && python3 arac/e2e_video.py /tmp/e2e
+python3 arac/e2e_kamera_test.py /tmp/e2e http://localhost:4173/   # anahtar + öğrenciler canlı kamerayla, Excel, e-posta
 python3 arac/yukleme_test.py http://localhost:4173/
+# (arac/e2e_test.py ve arac/kamera_test.py kaldırılan "fotoğraftan okut" düğmesini kullanır; yerlerine e2e_kamera_test.py)
 ```

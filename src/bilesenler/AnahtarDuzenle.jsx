@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { SIKLAR, KITAPCIKLAR } from '../mantik.js'
+import Simge from './Simge.jsx'
 
 /**
  * Cevap anahtarını gösterir / düzenletir. Okunamayan sorular kırmızı işaretlenir;
@@ -28,42 +29,53 @@ export default function AnahtarDuzenle({ baslangic, soruSayisi, kitapcikVarsayil
   }
 
   const ustuneYaz = mevcutKitapciklar.includes(kitapcik)
+  const dolu = soruSayisi - eksik.length
 
   return (
     <div className="pencere-arka">
-      <div className="pencere genis">
-        <h2>Cevap anahtarı</h2>
-        {uyarilar.map((u, i) => <div key={i} className="uyari-kutu">{u}</div>)}
-        <div className="satir">
-          <label>Kitapçık türü</label>
-          <div className="secenekler">
-            {KITAPCIKLAR.split('').map(k => (
-              <button key={k} type="button" className={'sec' + (kitapcik === k ? ' secili' : '')} onClick={() => setKitapcik(k)}>{k}</button>
+      <div className="pencere genis" role="dialog" aria-modal="true">
+        <div className="pencere-bas">
+          <span className="pencere-simge"><Simge ad="anahtar" /></span>
+          <h2>Cevap anahtarı</h2>
+          <span className={'ilerleme-rozet' + (eksik.length ? '' : ' tamam')}>{dolu} / {soruSayisi}</span>
+        </div>
+        <div className="pencere-govde">
+          {uyarilar.map((u, i) => <div key={i} className="uyari-kutu"><Simge ad="uyari" />{u}</div>)}
+          <div className="satir">
+            <label>Kitapçık türü</label>
+            <div className="secenekler">
+              {KITAPCIKLAR.split('').map(k => (
+                <button key={k} type="button" className={'sec' + (kitapcik === k ? ' secili' : '')} onClick={() => setKitapcik(k)}>{k}</button>
+              ))}
+            </div>
+          </div>
+          {ustuneYaz && <div className="bilgi-kutu"><Simge ad="bilgi" />{kitapcik} kitapçığının mevcut anahtarı bununla değiştirilecek.</div>}
+          <details className="elle">
+            <summary><Simge ad="klavye" boyut={16} />Harfleri yazarak doldur</summary>
+            <div className="elle-govde">
+              <textarea value={metin} onChange={e => setMetin(e.target.value)} placeholder="Örnek: ABDCE BBACD ..." rows={2} />
+              <button type="button" className="ikincil" onClick={metindenDoldur}>Doldur</button>
+            </div>
+          </details>
+          <div className="anahtar-izgara">
+            {Array.from({ length: soruSayisi }, (_, q) => (
+              <div key={q} className={'anahtar-satir' + (cevaplar[q] == null ? ' eksik' : '')}>
+                <span className="soru-no">{q + 1}</span>
+                {SIKLAR.split('').map((h, k) => (
+                  <button key={k} type="button" className={'sik' + (cevaplar[q] === k ? ' secili' : '')} onClick={() => sec(q, k)}>{h}</button>
+                ))}
+              </div>
             ))}
           </div>
         </div>
-        {ustuneYaz && <div className="bilgi-kutu">{kitapcik} kitapçığının mevcut anahtarı bununla değiştirilecek.</div>}
-        <details className="elle">
-          <summary>Harfleri yazarak doldur</summary>
-          <textarea value={metin} onChange={e => setMetin(e.target.value)} placeholder="Örnek: ABDCE BBACD ..." rows={2} />
-          <button type="button" className="ikincil" onClick={metindenDoldur}>Doldur</button>
-        </details>
-        <div className="anahtar-izgara">
-          {Array.from({ length: soruSayisi }, (_, q) => (
-            <div key={q} className={'anahtar-satir' + (cevaplar[q] == null ? ' eksik' : '')}>
-              <span className="soru-no">{q + 1}</span>
-              {SIKLAR.split('').map((h, k) => (
-                <button key={k} type="button" className={'sik' + (cevaplar[q] === k ? ' secili' : '')} onClick={() => sec(q, k)}>{h}</button>
-              ))}
-            </div>
-          ))}
-        </div>
-        {eksik.length > 0 && <div className="hata-kutu">Boş sorular: {eksik.join(', ')}. Tüm soruların cevabı işaretlenmeli.</div>}
-        <div className="dugmeler">
-          <button type="button" className="ikincil" onClick={onIptal}>Vazgeç</button>
-          <button type="button" className="birincil" disabled={eksik.length > 0} onClick={() => onKaydet(kitapcik, cevaplar)}>
-            Anahtarı kaydet
-          </button>
+        <div className="pencere-alt">
+          {eksik.length > 0 && <div className="hata-kutu"><Simge ad="uyari" />Boş sorular: {eksik.join(', ')}. Tüm soruların cevabı işaretlenmeli.</div>}
+          <div className="dugmeler">
+            <button type="button" className="ikincil" onClick={onIptal}>Vazgeç</button>
+            <button type="button" className="birincil" disabled={eksik.length > 0} onClick={() => onKaydet(kitapcik, cevaplar)}>
+              <Simge ad="onay" />Anahtarı kaydet
+            </button>
+          </div>
         </div>
       </div>
     </div>

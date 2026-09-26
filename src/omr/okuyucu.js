@@ -8,11 +8,36 @@
  *   - kâğıdın herhangi bir bölümü iyi hizalanamazsa kâğıt hiç okunmaz
  */
 
+import { hizliDuzeltmeOlustur } from './hizli-duzelt.js'
+
 export const HATA = {
   KOSE: 'kose',
   COZUNURLUK: 'cozunurluk',
   KIVRIK: 'kivrik',
   HIZA: 'hiza',
+}
+
+// koyulukHaritasi için tablo: KOYU_TABLO[arka << 8 | piksel] = clamp(1 - piksel / max(arka, 1), 0, 1)  (float32, birebir aynı değer)
+const KOYU_TABLO = (() => {
+  const t = new Float32Array(65536)
+  for (let a = 0; a < 256; a++) {
+    for (let g = 0; g < 256; g++) {
+      const v = 1 - g / Math.max(a, 1)
+      t[a << 8 | g] = v < 0 ? 0 : v > 1 ? 1 : v
+    }
+  }
+  return t
+})()
+
+/** Hızlı düzeltme yalnızca sayfanın her yeri kameranın önünde (w > 0) ve koordinatlar makul aralıktaysa kullanılır. */
+function hizliUygun(M, W, H) {
+  for (const [x, y] of [[0, 0], [W - 1, 0], [0, H - 1], [W - 1, H - 1]]) {
+    const w = x * M[6] + y * M[7] + M[8]
+    if (!(w > 1e-6)) return false
+    const sx = (x * M[0] + y * M[1] + M[2]) / w, sy = (x * M[3] + y * M[4] + M[5]) / w
+    if (!(Math.abs(sx) < 1e7 && Math.abs(sy) < 1e7)) return false
+  }
+  return true
 }
 
 export function okuyucuOlustur(cv, geo, secenek = {}) {
@@ -44,6 +69,40 @@ export function okuyucuOlustur(cv, geo, secenek = {}) {
   try { prm.cornerRefinementMethod = cv.CORNER_REFINE_SUBPIX.value ?? cv.CORNER_REFINE_SUBPIX } catch (e) { /* yok say */ }
   prm.adaptiveThreshWinSizeMax = 53
   const dedektor = new cv.aruco_ArucoDetector(sozluk, prm, new cv.aruco_RefineParameters(10, 3, true))
+
+  // ---- hızlı perspektif düzeltme: açılışta OpenCV ile karşılaştırılır, en küçük farkta kapatılır
+  let hizliDuzelt = secenek.hizliDuzeltme === false ? null : hizliDuzeltmeOlustur()
+  if (hizliDuzelt) {
+    try { if (!hizliSina()) hizliDuzelt = null } catch (e) { hizliDuzelt = null }
+  }
+  function hizliSina() {
+    // rastgele dokulu küçük görüntü; kaynağın dışına taşan köşeler ve 4'e bölünmeyen genişlik (tüm kod yolları)
+    const kg = 157, ky = 211
+    const kaynak = new cv.Mat(ky, kg, cv.CV_8UC1)
+    const kd = kaynak.data
+    let s = 12345
+    for (let i = 0; i < kd.length; i++) { s = (s * 1103515245 + 12345) & 0x7fffffff; kd[i] = (s >>> 16) & 255 }
+    let tamam = true
+    for (const [hg, hy, noktalar] of [
+      [130, 97, [-9, 7, 150, -4, 163, 190, 3, 222]],
+      [61, 83, [20.5, 30.25, 120, 25, 131, 180, 12, 170]],
+    ]) {
+      const a = cv.matFromArray(4, 1, cv.CV_32FC2, noktalar)
+      const b = cv.matFromArray(4, 1, cv.CV_32FC2, [0, 0, hg, 0, hg, hy, 0, hy])
+      const Hm = cv.getPerspectiveTransform(a, b)
+      const beklenen = new cv.Mat(), ters = new cv.Mat()
+      cv.warpPerspective(kaynak, beklenen, Hm, new cv.Size(hg, hy), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255))
+      cv.invert(Hm, ters, cv.DECOMP_LU)
+      const cikti = new Uint8Array(hg * hy)
+      hizliDuzelt(kaynak.data, kg, ky, cikti, hg, hy, Array.from(ters.data64F), 255)
+      const bd = beklenen.data
+      if (bd.length !== cikti.length) tamam = false
+      else for (let i = 0; i < bd.length; i++) if (bd[i] !== cikti[i]) { tamam = false; break }
+      a.delete(); b.delete(); Hm.delete(); beklenen.delete(); ters.delete()
+    }
+    kaynak.delete()
+    return tamam
+  }
 
   // ---- hedef köşe noktaları (düzeltilmiş görüntüde)
   const hedef = {}
@@ -97,7 +156,9 @@ export function okuyucuOlustur(cv, geo, secenek = {}) {
     const y = new cv.Mat()
     cv.resize(g, y, new cv.Size(Math.round(W / 2), Math.round(H / 2)), 0, 0, cv.INTER_AREA)
     const k = new cv.Mat(y.rows, y.cols, cv.CV_32F)
-    for (let i = 0; i < y.data.length; i++) k.data32F[i] = 1 - y.data[i] / 255
+    // .data / .data32F her erişimde yeni bir görünüm oluşturur: döngü dışında bir kez alınır (aynı sonuç, ~100 kat hızlı)
+    const yd = y.data, kd = k.data32F
+    for (let i = 0; i < yd.length; i++) kd[i] = 1 - yd[i] / 255
     g.delete(); y.delete()
     return k
   })()
@@ -160,6 +221,30 @@ export function okuyucuOlustur(cv, geo, secenek = {}) {
     try { return isaretleriBulGri(gray, hizli) } finally { gray.delete() }
   }
 
+  /**
+   * Perspektif düzeltme: hızlı yol (WebAssembly SIMD, OpenCV ile bit düzeyinde aynı) kullanılabiliyorsa o,
+   * değilse OpenCV'nin kendi warpPerspective fonksiyonu. Çıktı her iki yolda da birebir aynıdır.
+   */
+  function perspektif(gray, Hm) {
+    if (hizliDuzelt && gray.type() === cv.CV_8UC1 && gray.isContinuous()) {
+      const ters = new cv.Mat()
+      try {
+        cv.invert(Hm, ters, cv.DECOMP_LU)   // warpPerspective de içeride aynı şekilde ters çevirir
+        const M = Array.from(ters.data64F)
+        if (hizliUygun(M, W, H)) {
+          const duz = new cv.Mat(H, W, cv.CV_8UC1)
+          try {
+            hizliDuzelt(gray.data, gray.cols, gray.rows, duz.data, W, H, M, 255)
+            return duz
+          } catch (e) { duz.delete() }
+        }
+      } catch (e) { /* OpenCV yoluna geç */ } finally { ters.delete() }
+    }
+    const duz = new cv.Mat()
+    cv.warpPerspective(gray, duz, Hm, new cv.Size(W, H), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255))
+    return duz
+  }
+
   function duzelt(gray) {
     const m = isaretleriBulGri(gray)
     const ids = Object.keys(hedef)
@@ -184,8 +269,7 @@ export function okuyucuOlustur(cv, geo, secenek = {}) {
       geri.delete()
       hata /= 16
       if (hata > 25) return { hata: HATA.KIVRIK, mesaj: 'Kâğıt çok kıvrık. Düz bir zemine koyun.' }
-      const duz = new cv.Mat()
-      cv.warpPerspective(gray, duz, Hm, new cv.Size(W, H), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255))
+      const duz = perspektif(gray, Hm)
       return { duz, pxmm, hizaHatasi: hata }
     } finally { kaynak.delete(); hedefM.delete(); Hm.delete() }
   }
@@ -200,10 +284,8 @@ export function okuyucuOlustur(cv, geo, secenek = {}) {
     cv.resize(arka, arkaB, new cv.Size(gray.cols, gray.rows), 0, 0, cv.INTER_LINEAR)
     const koyu = new cv.Mat(gray.rows, gray.cols, cv.CV_32F)
     const g = gray.data, a = arkaB.data, k = koyu.data32F
-    for (let i = 0; i < g.length; i++) {
-      const v = 1 - g[i] / Math.max(a[i], 1)
-      k[i] = v < 0 ? 0 : v > 1 ? 1 : v
-    }
+    // Sonuç yalnızca (piksel, arka plan) ikilisine bağlı: önceden hesaplanmış tablodan okunur (aynı değerler, bölme yok)
+    for (let i = 0; i < g.length; i++) k[i] = KOYU_TABLO[a[i] << 8 | g[i]]
     kucuk.delete(); arka.delete(); arkaB.delete(); el.delete()
     return koyu
   }
@@ -498,5 +580,5 @@ export function okuyucuOlustur(cv, geo, secenek = {}) {
     dedektor.delete()
   }
 
-  return { oku, isaretleriBul, kapat, W, H }
+  return { oku, isaretleriBul, kapat, W, H, hizli: !!hizliDuzelt }
 }

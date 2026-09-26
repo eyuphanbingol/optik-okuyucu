@@ -20,8 +20,8 @@ def dene(ad, init_script=None, route_404=False, throttle=False):
         metin = s.locator("main").inner_text()
         hata = s.locator(".hata-kutu").all_inner_texts()
         hazir = s.locator('button:has-text("Anahtarı kamerayla okut"):not([disabled])').count() > 0
-        mod = s.evaluate("() => window.__mod || null")
-        print(f"{ad}: {'HAZIR' if hazir else 'HATA'} ({time.time()-t:.1f} sn) {hata[:1]} konsol={konsol[:2]}")
+        mod = s.evaluate("() => window.__optikMod || null")
+        print(f"{ad}: {'HAZIR' if hazir else 'HATA'} ({time.time()-t:.1f} sn) mod={mod} {hata[:1]} konsol={konsol[:2]}")
         b.close()
 dene("1) normal")
 dene("2) Worker yok (eski tarayıcı)", "delete window.Worker")

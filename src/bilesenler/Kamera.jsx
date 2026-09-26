@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { isaretBul, kagitOku } from '../omr/istemci.js'
 import { okumalariBirlestir } from '../mantik.js'
+import Simge from './Simge.jsx'
 
 /*
  * Canlı kamera ile otomatik okuma.
@@ -25,7 +26,8 @@ function kareAl(video, tuval, maksUzun = 0) {
     const o = maksUzun / Math.max(vw, vh)
     w = Math.round(vw * o); h = Math.round(vh * o)
   }
-  tuval.width = w; tuval.height = h
+  if (tuval.width !== w) tuval.width = w
+  if (tuval.height !== h) tuval.height = h
   const c = tuval.getContext('2d', { willReadFrequently: true })
   c.drawImage(video, 0, 0, w, h)
   return c.getImageData(0, 0, w, h)
@@ -34,7 +36,8 @@ function kareAl(video, tuval, maksUzun = 0) {
 export default function Kamera({ aktif, onKabul, ipucu }) {
   const videoRef = useRef(null)
   const cizimRef = useRef(null)
-  const tuvalRef = useRef(null)
+  const tuvalRef = useRef(null)      // önizleme karesi (küçük)
+  const tamTuvalRef = useRef(null)   // tam çözünürlüklü kare: ayrı tuval, her okumada 30 MB'lık yeniden ayırma olmaz
   const aktifRef = useRef(aktif)
   const onKabulRef = useRef(onKabul)
   const [mesaj, setMesaj] = useState('Kamera açılıyor…')
@@ -58,6 +61,7 @@ export default function Kamera({ aktif, onKabul, ipucu }) {
       bekleDegisim: false, sonKabulKimlik: null, sonKabulZaman: 0, sonDeneme: 0,
     }
     if (!tuvalRef.current) tuvalRef.current = document.createElement('canvas')
+    if (!tamTuvalRef.current) tamTuvalRef.current = document.createElement('canvas')
 
     const planla = (ms = DONGU_MS) => { if (calisiyor) zamanlayici = setTimeout(dongu, ms) }
     const bildir = (m, d) => { setMesaj(m); setDurum(d) }
@@ -66,23 +70,56 @@ export default function Kamera({ aktif, onKabul, ipucu }) {
       const cv = cizimRef.current, v = videoRef.current
       if (!cv || !v) return
       const W = cv.clientWidth, H = cv.clientHeight
-      if (cv.width !== W) cv.width = W
-      if (cv.height !== H) cv.height = H
+      const dpr = Math.min(window.devicePixelRatio || 1, 2)   // keskin çizgiler (retina)
+      if (cv.width !== Math.round(W * dpr)) cv.width = Math.round(W * dpr)
+      if (cv.height !== Math.round(H * dpr)) cv.height = Math.round(H * dpr)
       const c = cv.getContext('2d')
+      c.setTransform(dpr, 0, 0, dpr, 0, 0)
       c.clearRect(0, 0, W, H)
       const vw = v.videoWidth, vh = v.videoHeight
       if (!vw) return
       // video "contain" ile gösterilir: ekranda görünen = okunan kare
       const s = Math.min(W / vw, H / vh), ox = (W - vw * s) / 2, oy = (H - vh * s) / 2
       const VW = vw * s, VH = vh * s
-      // kılavuz çerçeve (A4 oranı)
+      // kılavuz çerçeve (A4 oranı): dışı hafifçe karartılır, köşelere vizör işaretleri
       const gh = Math.min(VH * 0.92, (VW * 0.94) * 297 / 210), gw = gh * 210 / 297
-      c.strokeStyle = 'rgba(255,255,255,0.55)'
-      c.setLineDash([10, 8]); c.lineWidth = 2
-      c.strokeRect(ox + (VW - gw) / 2, oy + (VH - gh) / 2, gw, gh)
-      c.setLineDash([])
+      const gx = ox + (VW - gw) / 2, gy = oy + (VH - gh) / 2
+      const kutu = kutuRef.current
+      if (kutu) {
+        const k = `${gx.toFixed(1)},${gy.toFixed(1)},${gw.toFixed(1)},${gh.toFixed(1)}`
+        if (kutu.dataset.kilavuz !== k) {
+          kutu.dataset.kilavuz = k
+          kutu.style.setProperty('--kx', gx + 'px'); kutu.style.setProperty('--ky', gy + 'px')
+          kutu.style.setProperty('--kw', gw + 'px'); kutu.style.setProperty('--kh', gh + 'px')
+        }
+      }
+      const r = Math.min(gw, gh) * 0.035
+      c.save()
+      c.fillStyle = 'rgba(3, 8, 10, 0.38)'
+      c.beginPath()
+      c.rect(ox, oy, VW, VH)
+      c.roundRect ? c.roundRect(gx, gy, gw, gh, r) : c.rect(gx, gy, gw, gh)
+      c.fill('evenodd')
+      c.restore()
+      const kilavuzRenk = renk === '#22c55e' ? renk : 'rgba(255,255,255,0.92)'
+      const L = Math.min(gw, gh) * 0.13
+      c.strokeStyle = kilavuzRenk
+      c.lineWidth = 3.5
+      c.lineCap = 'round'
+      c.lineJoin = 'round'
+      c.shadowColor = 'rgba(0,0,0,0.35)'
+      c.shadowBlur = 6
+      c.beginPath()
+      for (const [x, y, dx, dy] of [[gx, gy, 1, 1], [gx + gw, gy, -1, 1], [gx + gw, gy + gh, -1, -1], [gx, gy + gh, 1, -1]]) {
+        c.moveTo(x, y + dy * L)
+        c.lineTo(x, y + dy * r)
+        c.quadraticCurveTo(x, y, x + dx * r, y)
+        c.lineTo(x + dx * L, y)
+      }
+      c.stroke()
+      c.shadowBlur = 0
       if (!koseler) return
-      c.lineWidth = 4
+      c.lineWidth = 3
       c.strokeStyle = renk
       c.fillStyle = renk
       for (const k of Object.values(koseler)) {
@@ -92,7 +129,7 @@ export default function Kamera({ aktif, onKabul, ipucu }) {
           if (i === 0) c.moveTo(x, y); else c.lineTo(x, y)
         }
         c.closePath(); c.stroke()
-        c.globalAlpha = 0.25; c.fill(); c.globalAlpha = 1
+        c.globalAlpha = 0.28; c.fill(); c.globalAlpha = 1
       }
     }
 
@@ -143,7 +180,7 @@ export default function Kamera({ aktif, onKabul, ipucu }) {
         ciz(koseler, '#38bdf8')
         bildir(st.ilk ? 'Doğrulanıyor…' : 'Okunuyor…', 'oku')
         st.sonDeneme = Date.now()
-        const tam = kareAl(v, tuvalRef.current)
+        const tam = kareAl(v, tamTuvalRef.current)
         const r = await kagitOku(tam, true)
         if (!calisiyor) return
         if (!r.tamam) {
@@ -248,17 +285,26 @@ export default function Kamera({ aktif, onKabul, ipucu }) {
     <div ref={kutuRef} className={`kamera durum-${durum}${hata ? ' kamera-yok' : ''}`}>
       <video ref={videoRef} playsInline muted autoPlay />
       <canvas ref={cizimRef} className="kamera-cizim" />
-      {!hata && <div className="kamera-mesaj">{aktif ? mesaj : 'Duraklatıldı'}</div>}
+      {!hata && <div className="kamera-tarama" aria-hidden="true" />}
+      {!hata && (
+        <div className="kamera-mesaj">
+          <span className="kamera-nokta" aria-hidden="true" />
+          {aktif ? mesaj : 'Duraklatıldı'}
+        </div>
+      )}
       {ipucu && <div className="kamera-ipucu">{ipucu}</div>}
       <div className="kamera-alt">
         {cozunurluk && <span className="kamera-coz">{cozunurluk}</span>}
         {fener.var && (
-          <button type="button" className="kucuk-dugme" onClick={feneriDegistir}>{fener.acik ? '🔦 Işığı kapat' : '🔦 Işık'}</button>
+          <button type="button" className={'kucuk-dugme fener' + (fener.acik ? ' acik' : '')} aria-pressed={fener.acik} onClick={feneriDegistir}>
+            <Simge ad="fener" boyut={16} />{fener.acik ? 'Işığı kapat' : 'Işık'}
+          </button>
         )}
       </div>
       {hata && (
         <div className="kamera-hata">
           <div>
+            <span className="kamera-hata-simge"><Simge ad="kamera" boyut={28} /></span>
             <div>{hata}</div>
             <div className="kamera-hata-ipucu">Kamera izni vermeniz gerekiyor. Ayarlardan bu site için kamerayı açıp sayfayı yenileyin.</div>
           </div>
