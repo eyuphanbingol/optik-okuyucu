@@ -96,8 +96,14 @@ function AyarEkrani({ sinav, setSinav, git, devamSor }) {
       </label>
       {sinav.ogrenciler.length > 0 && <div className="uyari-kutu">Bu sınavda {sinav.ogrenciler.length} kâğıt okundu. Ayarları değiştirirseniz tüm puanlar yeniden hesaplanır.</div>}
       <label className="alan">Soru sayısı (1-80)
-        <input type="number" min="1" max="80" inputMode="numeric" value={a.soruSayisi}
-          onChange={e => ayarla('soruSayisi', Math.max(0, Math.min(80, parseInt(e.target.value || '0', 10))))} />
+        <input type="number" min="1" max="80" inputMode="numeric" value={a.soruSayisi || ''}
+          onChange={e => {
+            const ham = e.target.value
+            if (ham === '') { ayarla('soruSayisi', ''); return }
+            const n = parseInt(ham, 10)
+            if (Number.isNaN(n)) return
+            ayarla('soruSayisi', Math.max(0, Math.min(80, n)))
+          }} />
       </label>
       <label className="alan">Her soru kaç puan?
         <div className="yan-yana">
