@@ -295,7 +295,7 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
       </div>
 
       {kamera && createPortal(
-        <div className="kamera-ekran" role="dialog" aria-modal="true" aria-label="Kamera">
+        <div className={'kamera-ekran' + (aktifIs ? ' kamera-ekran-beklemede' : '')} role="dialog" aria-modal="true" aria-label="Kamera" aria-hidden={!!aktifIs}>
           <div className="kamera-ekran-ust">
             <span className="kamera-ekran-baslik">{ogrenciler.length} öğrenci okundu</span>
             <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}>Kapat</button>
@@ -325,12 +325,13 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
         </ol>
       </div>
 
-      {aktifIs && aktifIs.tur === 'kontrol' && (
+      {aktifIs && aktifIs.tur === 'kontrol' && createPortal(
         <KontrolPenceresi key={aktifIs.id} sonuc={aktifIs.r} sorunlar={aktifIs.sorunlar} ayar={ayar} anahtarlar={anahtarlar}
           onAtla={() => { isBitti(); bildir('uyari', 'Kâğıt atlandı. İsterseniz tekrar okutun.') }}
-          onOnay={karar => { isBitti(); kaydetKayit(kayitOlustur(aktifIs.r, karar, ayar)) }} />
+          onOnay={karar => { isBitti(); kaydetKayit(kayitOlustur(aktifIs.r, karar, ayar)) }} />,
+        document.body,
       )}
-      {aktifIs && aktifIs.tur === 'cakisma' && (
+      {aktifIs && aktifIs.tur === 'cakisma' && createPortal(
         <CakismaPenceresi key={aktifIs.id} is={aktifIs} ogrenciler={ogrenciler} anahtarlar={anahtarlar} ayar={ayar}
           onSec={secim => {
             const { kayit, t } = aktifIs
@@ -340,7 +341,8 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
               bildir('tamam', `✅ ${adSoyad(kayit)} güncellendi`)
             } else if (secim === 'ikisi') kaydetKayit(kayit, true)
             else bildir('uyari', 'Yeni okunan kâğıt kaydedilmedi.')
-          }} />
+          }} />,
+        document.body,
       )}
       {detay != null && ogrenciler[detay] && (
         <OgrenciDetay o={ogrenciler[detay]} sira={detay + 1} ayar={ayar} anahtarlar={anahtarlar} onKapat={() => setDetay(null)}

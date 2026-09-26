@@ -430,6 +430,11 @@ button:disabled { opacity: 0.5; cursor: default; }
   overflow: hidden;
 }
 
+.kamera-ekran-beklemede {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .kamera-ekran .kamera {
   position: absolute;
   inset: 0;
