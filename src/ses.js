@@ -1,6 +1,15 @@
 // Okutma sırasında geri bildirim: kısa ses + titreşim
 let ctx = null
 
+// Tarayıcılar, kullanıcı sayfaya hiç dokunmadan ses/titreşime izin vermez (konsola hata yazar).
+// Kullanıcı etkileşimi olmadan sessizce atla.
+function izinVar() {
+  try {
+    const ua = navigator.userActivation
+    return !ua || ua.hasBeenActive
+  } catch { return true }
+}
+
 function ton(frekans, sure, gecikme = 0) {
   try {
     ctx = ctx || new (window.AudioContext || window.webkitAudioContext)()
@@ -18,14 +27,20 @@ function ton(frekans, sure, gecikme = 0) {
   } catch { /* ses yoksa sorun değil */ }
 }
 
+function titret(desen) {
+  try { navigator.vibrate && navigator.vibrate(desen) } catch { /* yok */ }
+}
+
 export function basariSesi() {
+  if (!izinVar()) return
   ton(880, 0.12); ton(1320, 0.16, 0.1)
-  try { navigator.vibrate && navigator.vibrate(60) } catch { /* yok */ }
+  titret(60)
 }
 
 export function uyariSesi() {
+  if (!izinVar()) return
   ton(440, 0.18); ton(330, 0.22, 0.16)
-  try { navigator.vibrate && navigator.vibrate([80, 60, 80]) } catch { /* yok */ }
+  titret([80, 60, 80])
 }
 
 /** iOS'ta ses için ilk dokunuşta açılması gerekir */

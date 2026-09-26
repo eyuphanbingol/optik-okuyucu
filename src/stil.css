@@ -82,7 +82,9 @@ button:disabled { opacity: .5; cursor: default; }
 .kamera-ipucu { position: absolute; bottom: 52px; left: 50%; transform: translateX(-50%); color: #fff; background: rgba(0,0,0,.5); padding: 4px 10px; border-radius: 8px; font-size: 13px; }
 .kamera-alt { position: absolute; bottom: 10px; left: 10px; right: 10px; display: flex; justify-content: space-between; align-items: center; }
 .kamera-coz { color: rgba(255,255,255,.7); font-size: 11px; }
-.kamera-hata { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; color: #fff; text-align: center; background: rgba(0,0,0,.75); }
+.kamera-hata { position: absolute; inset: 0; display: grid; place-items: center; padding: 24px; color: #fff; text-align: center; background: rgba(0,0,0,.75); font-size: 16px; font-weight: 600; }
+.kamera-hata-ipucu { margin-top: 10px; font-size: 14px; font-weight: 400; opacity: .9; }
+.kamera.kamera-yok { aspect-ratio: auto; min-height: 200px; }
 
 /* ---- okutma ---- */
 .okut { margin-top: 10px; }

@@ -245,10 +245,10 @@ export default function Kamera({ aktif, onKabul, ipucu }) {
   }
 
   return (
-    <div ref={kutuRef} className={`kamera durum-${durum}`}>
+    <div ref={kutuRef} className={`kamera durum-${durum}${hata ? ' kamera-yok' : ''}`}>
       <video ref={videoRef} playsInline muted autoPlay />
       <canvas ref={cizimRef} className="kamera-cizim" />
-      <div className="kamera-mesaj">{aktif ? mesaj : 'Duraklatıldı'}</div>
+      {!hata && <div className="kamera-mesaj">{aktif ? mesaj : 'Duraklatıldı'}</div>}
       {ipucu && <div className="kamera-ipucu">{ipucu}</div>}
       <div className="kamera-alt">
         {cozunurluk && <span className="kamera-coz">{cozunurluk}</span>}
@@ -256,7 +256,14 @@ export default function Kamera({ aktif, onKabul, ipucu }) {
           <button type="button" className="kucuk-dugme" onClick={feneriDegistir}>{fener.acik ? '🔦 Işığı kapat' : '🔦 Işık'}</button>
         )}
       </div>
-      {hata && <div className="kamera-hata">{hata}</div>}
+      {hata && (
+        <div className="kamera-hata">
+          <div>
+            <div>{hata}</div>
+            <div className="kamera-hata-ipucu">Kamera olmadan da okutabilirsiniz: kâğıdın fotoğrafını çekip aşağıdaki <b>🖼️ Fotoğraftan okut</b> düğmesini kullanın.</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

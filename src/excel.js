@@ -21,7 +21,7 @@ export function dosyaAdi(sinav) {
   const ad = (sinav.ayar.sinavAdi || 'sinav').replace(/[^\p{L}\p{N} _-]/gu, '').trim().replace(/\s+/g, '_') || 'sinav'
   const t = new Date()
   const p = n => String(n).padStart(2, '0')
-  return `${ad}_sonuclar_${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}.xlsx`
+  return `${ad}_sonuclari_${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}.xlsx`
 }
 
 /** Sınav sonuçlarını Excel dosyasına (ArrayBuffer) döker. */
