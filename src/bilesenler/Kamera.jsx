@@ -260,7 +260,7 @@ export default function Kamera({ aktif, onKabul, ipucu }) {
         <div className="kamera-hata">
           <div>
             <div>{hata}</div>
-            <div className="kamera-hata-ipucu">Kamera olmadan da okutabilirsiniz: kâğıdın fotoğrafını çekip aşağıdaki <b>🖼️ Fotoğraftan okut</b> düğmesini kullanın.</div>
+            <div className="kamera-hata-ipucu">Kamera izni vermeniz gerekiyor. Ayarlardan bu site için kamerayı açıp sayfayı yenileyin.</div>
           </div>
         </div>
       )}

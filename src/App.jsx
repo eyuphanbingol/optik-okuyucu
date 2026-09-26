@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import Kamera from './bilesenler/Kamera.jsx'
 import AnahtarDuzenle from './bilesenler/AnahtarDuzenle.jsx'
 import KontrolPenceresi from './bilesenler/KontrolPenceresi.jsx'
-import { hazirla, kagitOku, resimVerisi } from './omr/istemci.js'
+import { hazirla } from './omr/istemci.js'
 import * as depo from './depo.js'
 import { basariSesi, uyariSesi, sesiAc } from './ses.js'
 import {
@@ -187,7 +187,6 @@ function AnahtarEkrani({ sinav, setSinav, git, okuyucuDurum, yukleme }) {
           <button type="button" className="birincil" disabled={okuyucuDurum !== 'hazir'} onClick={() => setKamera(true)}>
             {okuyucuDurum === 'hazir' ? '📷 Anahtarı kamerayla okut' : okuyucuDurum === 'yukleniyor' ? `Okuyucu hazırlanıyor… %${Math.round(yukleme.oran * 100)}` : 'Okuyucu yüklenemedi'}
           </button>
-          <FotoOkut okuyucuDurum={okuyucuDurum} onOkundu={okundu} coklu={false} etiket="🖼️ Fotoğraftan okut" />
           <button type="button" className="ikincil" onClick={() => setDuzenle({ baslangic: null, kitapcik: 'A', uyarilar: [] })}>⌨️ Elle gir</button>
         </div>
       )}
@@ -201,32 +200,6 @@ function AnahtarEkrani({ sinav, setSinav, git, okuyucuDurum, yukleme }) {
           onKaydet={kaydet} onIptal={() => setDuzenle(null)} />
       )}
     </section>
-  )
-}
-
-// =====================================================================
-function FotoOkut({ okuyucuDurum, onOkundu, onHata, coklu = true, etiket = '🖼️ Fotoğraftan okut' }) {
-  const ref = useRef(null)
-  const [mesgul, setMesgul] = useState(false)
-  async function sec(e) {
-    const dosyalar = Array.from(e.target.files || [])
-    e.target.value = ''
-    setMesgul(true)
-    try {
-      for (const f of dosyalar) {
-        let veri
-        try { veri = await resimVerisi(f) } catch (err) { (onHata || alert)(`${f.name}: ${err.message}`); continue }
-        const r = await kagitOku(veri, true)
-        if (!r.tamam) { (onHata || alert)(`${f.name}: ${r.mesaj}`); continue }
-        await onOkundu(r, f.name)
-      }
-    } finally { setMesgul(false) }
-  }
-  return (
-    <>
-      <button type="button" className="ikincil" disabled={okuyucuDurum !== 'hazir' || mesgul} onClick={() => ref.current.click()}>{mesgul ? 'Okunuyor…' : etiket}</button>
-      <input ref={ref} type="file" accept="image/*" multiple={coklu} hidden onChange={sec} />
-    </>
   )
 }
 
@@ -299,7 +272,6 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
         {bildirim && sonBildirimYasi < 5000 && <div className={'bildirim ' + bildirim.tur}>{bildirim.metin}</div>}
       </div>
       <div className="dugmeler">
-        <FotoOkut okuyucuDurum={okuyucuDurum} onOkundu={okundu} onHata={m => bildir('uyari', m)} />
         <button type="button" className="ikincil" onClick={() => git('anahtar')}>← Anahtar</button>
         <button type="button" className="birincil" onClick={() => git('sonuc')}>Bitti → Excel</button>
       </div>
