@@ -152,6 +152,13 @@ function AnahtarEkrani({ sinav, setSinav, git, okuyucuDurum, yukleme }) {
     setDuzenle({ baslangic: t.cevaplar, kitapcik: t.kitapcik || 'A', uyarilar })
   }, [N])
 
+  useEffect(() => {
+    if (!kamera) return
+    const onceki = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = onceki }
+  }, [kamera])
+
   function kaydet(kitapcik, cevaplar) {
     setSinav(s => ({ ...s, anahtarlar: { ...s.anahtarlar, [kitapcik]: cevaplar } }))
     setDuzenle(null)
@@ -178,10 +185,13 @@ function AnahtarEkrani({ sinav, setSinav, git, okuyucuDurum, yukleme }) {
         </div>
       )}
       {kamera ? (
-        <>
+        <div className="kamera-ekran" role="dialog" aria-modal="true" aria-label="Kamera">
+          <div className="kamera-ekran-ust">
+            <span className="kamera-ekran-baslik">Cevap anahtarı</span>
+            <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}>Kapat</button>
+          </div>
           <Kamera aktif={!duzenle} onKabul={okundu} ipucu="Cevap anahtarı kâğıdını okutun" />
-          <div className="dugmeler"><button type="button" className="ikincil" onClick={() => setKamera(false)}>Kamerayı kapat</button></div>
-        </>
+        </div>
       ) : (
         <div className="dugmeler">
           <button type="button" className="birincil" disabled={okuyucuDurum !== 'hazir'} onClick={() => setKamera(true)}>
@@ -211,6 +221,7 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
   const [bildirim, setBildirim] = useState(null)       // {tur, metin}
   const [nasil, setNasil] = useState(() => !ogrenciler.length)
   const [detay, setDetay] = useState(null)
+  const [kamera, setKamera] = useState(false)
   const sinavRef = useRef(sinav); sinavRef.current = sinav
 
   const aktifIs = bekleyen[0]
@@ -245,6 +256,12 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
 
   const sonBildirimYasi = bildirim ? Date.now() - bildirim.zaman : Infinity
   useEffect(() => { if (!bildirim) return; const t = setTimeout(() => setBildirim(null), 5000); return () => clearTimeout(t) }, [bildirim])
+  useEffect(() => {
+    if (!kamera) return
+    const onceki = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = onceki }
+  }, [kamera])
 
   return (
     <section className="okut">
@@ -267,14 +284,26 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
           </ol>
         </div>
       )}
-      <div className="okut-kamera">
-        <Kamera aktif={!aktifIs && okuyucuDurum === 'hazir'} onKabul={okundu} />
-        {bildirim && sonBildirimYasi < 5000 && <div className={'bildirim ' + bildirim.tur}>{bildirim.metin}</div>}
-      </div>
       <div className="dugmeler">
+        <button type="button" className="birincil" disabled={okuyucuDurum !== 'hazir'} onClick={() => setKamera(true)}>
+          {okuyucuDurum === 'hazir' ? '📷 Kamerayla okut' : okuyucuDurum === 'yukleniyor' ? 'Okuyucu hazırlanıyor…' : 'Okuyucu yüklenemedi'}
+        </button>
         <button type="button" className="ikincil" onClick={() => git('anahtar')}>← Anahtar</button>
         <button type="button" className="birincil" onClick={() => git('sonuc')}>Bitti → Excel</button>
       </div>
+
+      {kamera && (
+        <div className="kamera-ekran" role="dialog" aria-modal="true" aria-label="Kamera">
+          <div className="kamera-ekran-ust">
+            <span className="kamera-ekran-baslik">{ogrenciler.length} öğrenci okundu</span>
+            <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}>Kapat</button>
+          </div>
+          <div className="okut-kamera">
+            <Kamera aktif={!aktifIs && okuyucuDurum === 'hazir'} onKabul={okundu} />
+            {bildirim && sonBildirimYasi < 5000 && <div className={'bildirim ' + bildirim.tur}>{bildirim.metin}</div>}
+          </div>
+        </div>
+      )}
 
       <div className="liste-kart">
         <div className="liste-baslik">
