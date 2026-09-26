@@ -23,7 +23,7 @@ export function dosyaAdi(sinav) {
   return `${ad}_sonuclari_${t.getFullYear()}-${p(t.getMonth() + 1)}-${p(t.getDate())}.xlsx`
 }
 
-/** Sınav sonuçlarını Excel dosyasına (ArrayBuffer) döker. */
+/** Sınav sonuçlarını Excel dosyasına (ArrayBuffer) döker. Not sütunu yok. */
 export async function excelOlustur(sinav) {
   const { default: ExcelJS } = await import('exceljs')
   const { ayar, anahtarlar, ogrenciler } = sinav

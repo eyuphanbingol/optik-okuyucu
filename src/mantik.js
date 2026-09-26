@@ -148,11 +148,10 @@ export function varsayilanKarar(c) {
 /** Okuma + öğretmen kararları -> kayıt */
 export function kayitOlustur(r, { ad, soyad, no, kitapcik, kararlar = {} }, ayar) {
   const cevaplar = r.cevaplar.map((c, q) => kararlar[q] ?? varsayilanKarar(c))
-  const notlar = Object.keys(kararlar).map(q => `${+q + 1}. soru öğretmen onaylı`)
   return {
     id: (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : String(Date.now() + Math.random()),
     ad: ad ?? r.ad.metin, soyad: soyad ?? r.soyad.metin, no: no ?? r.no.metin,
-    kitapcik, cevaplar, notlar, zaman: Date.now(),
+    kitapcik, cevaplar, notlar: [], zaman: Date.now(),
   }
 }
 
