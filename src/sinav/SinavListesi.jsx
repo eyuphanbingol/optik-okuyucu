@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import Simge from '../bilesenler/Simge.jsx'
 import { sinavlariListele, sinavKaydet, sinavSil, profilGetir, profilKaydet, kalici } from './depo.js'
-import { yeniSinav, soruMu, toplamPuan, TURLER, GRUP_HARFLERI } from './model.js'
+import { yeniSinav, soruMu, toplamPuan, TURLER, GRUP_HARFLERI, puanMetni, grupSayisiSinirla } from './model.js'
 import { yedekOlustur, yedektenYukle, sinavKopyala, indirBlob, dosyaAdi } from './yedek.js'
-import { Acilir, MenuOge, MenuAyrac, Pencere, Secici, useBildirim, tarihMetni } from './arayuz.jsx'
+import { Acilir, MenuOge, MenuAyrac, Pencere, Secici, GrupSecici, useBildirim, tarihMetni } from './arayuz.jsx'
 
 const SABLONLAR = [
   { id: 'test', ad: 'Test', aciklama: 'Çoktan seçmeli sorular; optik formla okunabilir', simge: 'liste' },
@@ -124,7 +124,7 @@ function SinavKarti({ s, onKopya, onYedek, onSil }) {
       <div className="sh-kucuk-kagit" aria-hidden="true">
         <span className="kk-baslik" /><span className="kk-alt" />
         <span className="kk-satir" /><span className="kk-satir kisa" /><span className="kk-satir" /><span className="kk-satir kisa" />
-        {g > 1 && <span className="kk-gruplar">{GRUP_HARFLERI.slice(0, g).split('').map(h => <i key={h}>{h}</i>)}</span>}
+        {g > 1 && <span className="kk-gruplar">{(g <= 4 ? GRUP_HARFLERI.slice(0, g).split('') : ['A', 'B', '…', GRUP_HARFLERI[g - 1]]).map((h, i) => <i key={i}>{h}</i>)}</span>}
       </div>
       <div className="sh-kart-metin">
         <b className="sh-kart-ad">{ad}</b>
@@ -132,7 +132,7 @@ function SinavKarti({ s, onKopya, onYedek, onSil }) {
         <div className="sh-kart-cipler">
           <span className="cip">{sorular.length} soru</span>
           <span className="cip">{g === 1 ? 'Tek grup' : `${g} grup`}</span>
-          <span className="cip">{toplamPuan(s.ogeler)} puan</span>
+          <span className="cip">{puanMetni(toplamPuan(s.ogeler))} puan</span>
         </div>
         <div className="sh-kart-turler" title={turler.map(t => TURLER[t]?.ad).join(', ')}>
           {turler.map(t => <span key={t}><Simge ad={TURLER[t]?.simge || 'sayfa'} boyut={14} /></span>)}
@@ -158,7 +158,7 @@ export function YeniSinavPenceresi({ baslangicSablon = 'test', onKapat }) {
   const [sablon, setSablon] = useState(baslangicSablon)
   const [soru, setSoru] = useState(baslangicSablon === 'yazili' ? 5 : baslangicSablon === 'karma' ? 10 : 20)
   const [sik, setSik] = useState(profil.sikSayisi || 5)
-  const [grup, setGrup] = useState(profil.grupSayisi || 2)
+  const [grup, setGrup] = useState(grupSayisiSinirla(profil.grupSayisi || 2))
   const [b, setB] = useState(() => ({ okul: profil.okul || '', ders: profil.ders || '', sinif: '', sinavAdi: '', ogretmen: profil.ogretmen || '' }))
   const [mesgul, setMesgul] = useState(false)
   const ilkRef = useRef(null)
@@ -203,8 +203,8 @@ export function YeniSinavPenceresi({ baslangicSablon = 'test', onKapat }) {
             <Secici etiket="Şık sayısı" deger={sik} onDegis={setSik} secenekler={[[3, 'A–C'], [4, 'A–D'], [5, 'A–E']]} />
           </div>
         )}
-        <div className="alan"><span className="alan-ad">Grup</span>
-          <Secici etiket="Grup sayısı" deger={grup} onDegis={setGrup} secenekler={[[1, 'Tek'], [2, 'A–B'], [3, 'A–C'], [4, 'A–D']]} />
+        <div className="alan"><span className="alan-ad">Grup sayısı</span>
+          <GrupSecici deger={grup} onDegis={setGrup} optikUyari={sablon === 'test'} />
         </div>
       </div>
       <div className="sh-form-bolum">
@@ -214,6 +214,7 @@ export function YeniSinavPenceresi({ baslangicSablon = 'test', onKapat }) {
           <label className="alan"><span className="alan-ad">Ders</span><input value={b.ders} onChange={e => ayarla('ders', e.target.value)} placeholder="Örn. Matematik" /></label>
           <label className="alan"><span className="alan-ad">Sınıf / şube</span><input value={b.sinif} onChange={e => ayarla('sinif', e.target.value)} placeholder="Örn. 9. Sınıf" /></label>
           <label className="alan"><span className="alan-ad">Sınav adı</span><input value={b.sinavAdi} onChange={e => ayarla('sinavAdi', e.target.value)} placeholder="Örn. 1. Dönem 1. Yazılı" /></label>
+          <label className="alan"><span className="alan-ad">Öğretmen adı <small>isteğe bağlı · kâğıtta yalnızca ad soyad yazar</small></span><input value={b.ogretmen} onChange={e => ayarla('ogretmen', e.target.value)} placeholder="Örn. Ayşe Yılmaz" autoComplete="name" /></label>
         </div>
       </div>
     </Pencere>

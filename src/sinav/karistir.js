@@ -1,14 +1,14 @@
 /*
- * Gruplar (A, B, C, D): aynı sınavın karıştırılmış sürümleri ve cevap anahtarları.
+ * Gruplar (A, B, C, …): aynı sınavın karıştırılmış sürümleri ve cevap anahtarları. Grup sayısı serbesttir (A–Z).
  *
  *  - A grubu öğretmenin yazdığı sıradadır.
- *  - B, C, D: (ayar açıksa) sorular kendi bölümleri içinde karıştırılır, bölüm başlıkları yerinde kalır;
+ *  - B, C, D, …: (ayar açıksa) sorular kendi bölümleri içinde karıştırılır, bölüm başlıkları yerinde kalır;
  *    çoktan seçmeli şıklar karıştırılır ("şıkları sabitle" işaretli sorular hariç).
  *  - Eşleştirmenin sağ sütunu ve boşluk doldurmanın kelime havuzu her grupta (A dahil) karıştırılır;
  *    yoksa cevaplar sıradan okunurdu.
  *  - Karıştırma tohuma bağlıdır: aynı sınav her açılışta aynı grupları üretir. "Yeniden karıştır" tohumu değiştirir.
  */
-import { GRUP_HARFLERI, HARFLER, soruMu } from './model.js'
+import { GRUP_HARFLERI, HARFLER, soruMu, grupSayisiSinirla } from './model.js'
 
 function karma(...parcalar) {
   let h = 2166136261 >>> 0
@@ -162,6 +162,6 @@ export function anahtarOlustur(ogeler) {
 }
 
 export function tumGruplar(sinav) {
-  const n = Math.max(1, Math.min(4, sinav.ayar.grupSayisi || 1))
+  const n = grupSayisiSinirla(sinav.ayar.grupSayisi || 1)
   return Array.from({ length: n }, (_, g) => grupOlustur(sinav, g))
 }

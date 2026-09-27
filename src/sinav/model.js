@@ -16,7 +16,14 @@ import { duzMetin } from './metin.js'
 
 export const SURUM = 1
 export const HARFLER = 'ABCDE'
-export const GRUP_HARFLERI = 'ABCD'
+/** Grup harfleri: öğretmen istediği kadar grup yapar (en çok 26: A–Z) */
+export const GRUP_HARFLERI = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+export const MAKS_GRUP = GRUP_HARFLERI.length
+/** Optik formdaki kitapçık türü sayısı (A, B, C, D): optikle okunacak sınavda en çok bu kadar grup olabilir */
+export const OPTIK_KITAPCIK = 4
+export const grupSayisiSinirla = n => Math.max(1, Math.min(MAKS_GRUP, Math.round(Number(n) || 1)))
+/** "A", "A–B", "A–F" gibi */
+export const grupAraligi = n => (n <= 1 ? 'A' : `A–${GRUP_HARFLERI[grupSayisiSinirla(n) - 1]}`)
 
 export const TURLER = {
   coktan: { ad: 'Çoktan seçmeli', kisa: 'Test', simge: 'liste', aciklama: 'A–E şıklı, tek doğru cevaplı' },
@@ -112,7 +119,7 @@ export function yeniSinav({ sablon = 'bos', soruSayisi = 10, sikSayisi = 4, grup
   }
   ogeler = puanlariDagit(ogeler, 100)
   const ayar = varsayilanAyar()
-  ayar.grupSayisi = Math.max(1, Math.min(4, Number(grupSayisi) || 1))
+  ayar.grupSayisi = grupSayisiSinirla(grupSayisi)
   const simdi = Date.now()
   return { id: yeniId(), surum: SURUM, olusturma: simdi, guncelleme: simdi, baslik: { ...varsayilanBaslik(profil), ...baslik }, ayar, ogeler }
 }
@@ -130,15 +137,25 @@ export function numaralar(ogeler) {
 export const soruSayisi = ogeler => ogeler.filter(soruMu).length
 export const toplamPuan = ogeler => yuvarla(ogeler.filter(soruMu).reduce((a, o) => a + (Number(o.puan) || 0), 0))
 export const yuvarla = (x, h = 2) => Math.round((x + Number.EPSILON) * 10 ** h) / 10 ** h
+/** Kâğıtta ve ekranda puan: en çok iki ondalık, Türkçe virgül (8,33) */
+export const puanMetni = p => yuvarla(Number(p) || 0, 2).toLocaleString('tr-TR', { maximumFractionDigits: 2 })
+/** Yalnızca çoktan seçmeli sorulardan oluşan sınav (optik formla okunabilecek tür) */
+export const testMi = ogeler => { const s = ogeler.filter(soruMu); return s.length > 0 && s.every(o => o.tur === 'coktan') }
 
 /**
- * Puanları eşit dağıtır: toplam tam sayıysa her soruya tam sayı puan verilir,
- * artan puan son sorulara birer birer eklenir (100 / 30 -> 3,3,...,4,4,4 gibi değil; 4 x 10 + 3 x 20 = 100).
+ * Puanları eşit dağıtır.
+ *  - Test (yalnız çoktan seçmeli): her soru tam olarak eşit puan alır (100 / 12 = 8,3333…). Optik okuyucu da
+ *    her soruyu eşit sayar; kâğıttaki puan ile optiğin hesapladığı puan birebir aynı olur.
+ *  - Karma / yazılı: her soruya tam sayı puan; artan puan son sorulara birer birer eklenir (4 x 10 + 3 x 20 = 100).
  */
-export function puanlariDagit(ogeler, toplam = 100) {
+export function puanlariDagit(ogeler, toplam = 100, esit = testMi(ogeler)) {
   const sorular = ogeler.filter(soruMu)
   const n = sorular.length
   if (!n) return ogeler
+  if (esit || !Number.isInteger(toplam)) {
+    const p = yuvarla(toplam / n, 4)
+    return ogeler.map(o => (soruMu(o) ? { ...o, puan: p } : o))
+  }
   const taban = Math.floor(toplam / n)
   let artan = toplam - taban * n
   const puan = new Map()

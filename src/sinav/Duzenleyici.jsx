@@ -4,7 +4,7 @@ import Duzenlenebilir from './Duzenlenebilir.jsx'
 import { OgeKarti, TurMenusu } from './Ogeler.jsx'
 import Ozellikler from './Ozellikler.jsx'
 import { Acilir, MenuOge, MenuAyrac, useBildirim, Pencere } from './arayuz.jsx'
-import { yeniOge, numaralar, soruSayisi, toplamPuan, turDegistir, ogeKopyala, TURLER, yeniId } from './model.js'
+import { yeniOge, numaralar, soruSayisi, toplamPuan, turDegistir, ogeKopyala, TURLER, yeniId, puanMetni } from './model.js'
 import { ozet, SEMBOLLER } from './metin.js'
 import { gorselEkle } from './gorsel.js'
 import { sinavSil } from './depo.js'
@@ -147,7 +147,7 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
         <div className="sh-ust-ad">
           <input className="sh-ust-baslik" value={b.sinavAdi} onChange={e => bGuncelle('sinavAdi', e.target.value)} placeholder="Adsız sınav" aria-label="Sınav adı" />
           <span className="sh-ust-alt">
-            {[b.sinif, b.ders].filter(Boolean).join(' · ') || 'Sınav'} · {sayi} soru · {toplam} puan
+            {[b.sinif, b.ders].filter(Boolean).join(' · ') || 'Sınav'} · {sayi} soru · {puanMetni(toplam)} puan
             <span className={`sh-kayit ${kayit}`}>
               {kayit === 'hata' ? <><Simge ad="uyari" boyut={13} />Kaydedilemedi</> : kayit === 'kaydedildi' ? <><Simge ad="onay" boyut={13} kalinlik={2.4} />Kaydedildi</> : 'Kaydediliyor…'}
             </span>
@@ -199,7 +199,6 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
               <div className="sh-b-bilgi">
                 <label>Tarih<input value={b.tarih} onChange={e => bGuncelle('tarih', e.target.value)} placeholder="gg.aa.yyyy" /></label>
                 <label>Süre<input value={b.sure} onChange={e => bGuncelle('sure', e.target.value)} placeholder="40 dakika" /></label>
-                <label>Öğretmen<input value={b.ogretmen} onChange={e => bGuncelle('ogretmen', e.target.value)} placeholder="Ad Soyad" /></label>
               </div>
               <Duzenlenebilir className="sh-b-yonerge" deger={b.yonerge} onDegis={h => bGuncelle('yonerge', h)} yerTutucu="Sınav yönergesi (isteğe bağlı) — örn. Süre 40 dakikadır. Cevaplarınızı tükenmez kalemle yazınız." />
               {sinav.ayar.grupSayisi > 1 && <span className="sh-b-grup" title="Grup harfi baskıda her kâğıtta ayrı görünür">A</span>}
@@ -224,7 +223,11 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
                 </div>
               </>
             )}
-            {sinav.ayar.altBilgi && <div className="sh-kagit-altbilgi">{sinav.ayar.altBilgi}{b.ogretmen && <span> — {b.ogretmen}</span>}</div>}
+            <div className="sh-kagit-altbilgi">
+              {sinav.ayar.altBilgi && <span>{sinav.ayar.altBilgi}</span>}
+              {/* kâğıtta "Öğretmen:" yazmaz; yalnızca ad soyad (isteğe bağlı) */}
+              <input className="sh-b-ogretmen" value={b.ogretmen} onChange={e => bGuncelle('ogretmen', e.target.value)} placeholder="Öğretmen adı (isteğe bağlı)" aria-label="Öğretmen adı (isteğe bağlı)" />
+            </div>
           </div>
           {sinav.ayar.sutun === 2 && <p className="sh-tuval-not"><Simge ad="sutun" boyut={15} />İki sütunlu düzen önizlemede ve baskıda uygulanır.</p>}
         </main>
@@ -304,7 +307,7 @@ function AnaHat({ sinav, no, secili, islem, onSec }) {
     <div className="sh-anahat-ic">
       <div className="sh-anahat-ust">
         <span>Sorular</span>
-        <span className="sh-anahat-sayi">{soruSayisi(sinav.ogeler)} soru · {toplam} p</span>
+        <span className="sh-anahat-sayi">{soruSayisi(sinav.ogeler)} soru · {puanMetni(toplam)} p</span>
       </div>
       <button type="button" className={'sh-anahat-oge baslik' + (!secili ? ' secili' : '')} onClick={() => { islem.sec(null); document.getElementById('oge-__baslik')?.scrollIntoView({ block: 'start', behavior: 'smooth' }); onSec() }}>
         <span className="sh-ah-no"><Simge ad="sayfa" boyut={14} /></span>
@@ -324,7 +327,7 @@ function AnaHat({ sinav, no, secili, islem, onSec }) {
               <span className="sh-ah-tutamak" aria-hidden="true"><Simge ad="tutamak" boyut={14} /></span>
               <span className="sh-ah-no">{o.tur === 'bolum' ? <Simge ad="baslik" boyut={14} /> : no.get(o.id)}</span>
               <span className="sh-ah-metin">{ozet(o.metin, 60) || <i>{o.tur === 'bolum' ? 'Başlıksız bölüm' : TURLER[o.tur].ad}</i>}</span>
-              {o.tur !== 'bolum' && <span className="sh-ah-puan">{o.puan || 0}</span>}
+              {o.tur !== 'bolum' && <span className="sh-ah-puan">{puanMetni(o.puan)}</span>}
             </button>
           </li>
         ))}

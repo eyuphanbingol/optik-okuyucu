@@ -1,8 +1,8 @@
 import { useMemo, useRef } from 'react'
 import Simge from '../bilesenler/Simge.jsx'
-import { Anahtar, Secici, Sayac, Acilir } from './arayuz.jsx'
+import { Anahtar, Secici, Sayac, Acilir, GrupSecici } from './arayuz.jsx'
 import { TurMenusu } from './Ogeler.jsx'
-import { TURLER, soruSayisi, toplamPuan, eksikler, puanlariDagit } from './model.js'
+import { TURLER, soruSayisi, toplamPuan, eksikler, puanlariDagit, puanMetni, testMi } from './model.js'
 import { duzMetin } from './metin.js'
 
 /** Sağ panel: seçili soru yoksa sınav ayarları, varsa sorunun özellikleri */
@@ -36,8 +36,8 @@ function SinavAyarlari({ sinav, degistir, islem }) {
         <span className="ust-baslik">Sınav ayarları</span>
         <div className="sh-oz-ozet">
           <div><b>{n}</b><span>soru</span></div>
-          <div className={toplam === 100 ? 'iyi' : 'uyari'}><b>{toplam}</b><span>puan</span></div>
-          <div><b>{a.grupSayisi}</b><span>{a.grupSayisi === 1 ? 'grup' : 'grup'}</span></div>
+          <div className={toplam === 100 ? 'iyi' : 'uyari'}><b>{puanMetni(toplam)}</b><span>puan</span></div>
+          <div><b>{a.grupSayisi}</b><span>grup</span></div>
         </div>
         {toplam !== 100 && n > 0 && (
           <button type="button" className="ikincil kucuk tam" onClick={() => degistir(s => ({ ...s, ogeler: puanlariDagit(s.ogeler, 100) }))}>
@@ -47,8 +47,7 @@ function SinavAyarlari({ sinav, degistir, islem }) {
       </div>
 
       <Bolum baslik="Gruplar" simge="kopya">
-        <Secici etiket="Grup sayısı" deger={a.grupSayisi} onDegis={v => ayarla('grupSayisi', v)}
-          secenekler={[[1, 'Tek', 'Tek grup'], [2, 'A–B', 'A ve B grubu'], [3, 'A–C', 'A, B, C grubu'], [4, 'A–D', 'A, B, C, D grubu']]} />
+        <GrupSecici deger={a.grupSayisi} onDegis={v => ayarla('grupSayisi', v)} optikUyari={testMi(sinav.ogeler)} />
         {a.grupSayisi > 1 && (
           <>
             <Anahtar deger={a.soruKaristir} onDegis={v => ayarla('soruKaristir', v)} aciklama="Bölüm başlıkları yerinde kalır">Soru sırasını karıştır</Anahtar>

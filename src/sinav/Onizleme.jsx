@@ -1,24 +1,30 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Simge from '../bilesenler/Simge.jsx'
-import { GrupSayfalari, CevapAnahtari, SAYFA } from './Baski.jsx'
+import { GrupSayfalari, GrupSayfaCizim, GrupOlcer, CevapAnahtari, BosSayfa, SAYFA, olcumAnahtari } from './Baski.jsx'
+import { OptikFormSayfasi } from './OptikForm.jsx'
 import { tumGruplar } from './karistir.js'
-import { eksikler, soruSayisi, toplamPuan, GRUP_HARFLERI } from './model.js'
+import { eksikler, soruSayisi, toplamPuan, puanMetni, puanlariDagit, testMi, soruMu, sinavBaslikMetni } from './model.js'
 import { duzMetin } from './metin.js'
-import { Acilir, MenuOge, MenuAyrac, Secici, Anahtar, Pencere, useBildirim } from './arayuz.jsx'
-import { optigeAktarilabilir, optikDurumu } from './optikAktar.js'
+import { Secici, Anahtar, Pencere, Sayac, GrupSecici, useBildirim } from './arayuz.jsx'
+import { optigeAktarilabilir, optikYapiUygun, optikDurumu, puanDurumu } from './optikAktar.js'
+import { baskiListesi, baskiSecimiDuzelt, dagilim, bloklar, MAKS_OGRENCI } from './baski.js'
 import * as optikDepo from '../depo.js'
 import { indirBlob, dosyaAdi } from './yedek.js'
 
 const MM_PX = 96 / 25.4
 
+/** Grubun optik anahtarı: soru sırasıyla doğru şık indeksleri */
+const grupCevaplari = grup => grup.ogeler.filter(soruMu).map(o => (o.dogruIndex ?? null))
+
 export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
   const gruplar = useMemo(() => tumGruplar(sinav), [sinav])
-  const [sekme, setSekme] = useState(0)                 // 0..3 grup, 'anahtar'
+  const [sekme, setSekme] = useState(0)                 // 0..n-1 grup, 'anahtar', 'optik'
   const [bilgi, setBilgi] = useState({})                // grup -> { sayfa, tasan }
-  const [baski, setBaski] = useState(null)              // { gruplar: [...], anahtar: bool }
+  const [is, setIs] = useState(null)                    // yazdırma işi { kimlik, bloklar, planlar, kitapcik }
   const [olcek, setOlcek] = useState(1)
   const [optikPencere, setOptikPencere] = useState(false)
+  const [yazdirPencere, setYazdirPencere] = useState(false)
   const [wordMesgul, setWordMesgul] = useState(false)
   const [bildirim, bildir] = useBildirim()
   const alan = useRef(null)
@@ -26,8 +32,12 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
   const ayarla = (k, v) => degistir(s => ({ ...s, ayar: { ...s.ayar, [k]: v } }))
   const eksik = useMemo(() => eksikler(sinav, duzMetin), [sinav])
   const optik = useMemo(() => optigeAktarilabilir(sinav), [sinav])
+  const optikYapi = useMemo(() => optikYapiUygun(sinav), [sinav])
 
-  useEffect(() => { if (typeof sekme === 'number' && sekme >= gruplar.length) setSekme(0) }, [gruplar.length, sekme])
+  useEffect(() => {
+    if (typeof sekme === 'number' && sekme >= gruplar.length) setSekme(0)
+    if (sekme === 'optik' && !optik.tamam) setSekme(0)
+  }, [gruplar.length, sekme, optik.tamam])
   // ayar değişince eski sayfa sayıları geçersiz (açık sekme yeniden ölçülür, diğerleri açılınca)
   useEffect(() => { setBilgi({}) }, [gruplar])
 
@@ -35,48 +45,19 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
   useEffect(() => {
     const el = alan.current
     if (!el) return
-    const hesapla = () => {
-      const g = el.clientWidth - 32
-      setOlcek(Math.min(1, g / (SAYFA.g * MM_PX)))
-    }
+    const hesapla = () => setOlcek(Math.min(1, (el.clientWidth - 32) / (SAYFA.g * MM_PX)))
     hesapla()
     const ro = new ResizeObserver(hesapla)
     ro.observe(el)
     return () => ro.disconnect()
   }, [])
 
-  // ---- yazdırma: seçilen tüm sayfalar gövdeye ayrı bir alan olarak çizilir, yerleşim bitince yazdırma penceresi açılır
-  const [baskiHazir, setBaskiHazir] = useState({})
-  const yazdir = useCallback((secim) => {
-    setBaskiHazir({})
-    setBaski(secim)
-  }, [])
+  // kısayol: Ctrl+P yazdırma penceresini açar
   useEffect(() => {
-    if (!baski) return
-    const beklenen = baski.gruplar.length
-    const hazirSayi = Object.keys(baskiHazir).length
-    if (hazirSayi < beklenen) return
-    const html = document.documentElement
-    html.classList.add('sh-yazdir')
-    const bitti = () => { html.classList.remove('sh-yazdir'); setBaski(null); window.removeEventListener('afterprint', bitti) }
-    window.addEventListener('afterprint', bitti)
-    const t = setTimeout(() => {
-      try { window.print() } finally {
-        // bazı tarayıcılar afterprint göndermez
-        setTimeout(() => { if (html.classList.contains('sh-yazdir')) bitti() }, 1500)
-      }
-    }, 120)
-    return () => clearTimeout(t)
-  }, [baski, baskiHazir])
-
-  // kısayol: Ctrl+P bu ekranda doğru baskıyı başlatır
-  useEffect(() => {
-    const f = e => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); yazdir({ gruplar: gruplar.map((_, i) => i), anahtar: false }) }
-    }
+    const f = e => { if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'p') { e.preventDefault(); setYazdirPencere(true) } }
     window.addEventListener('keydown', f)
     return () => window.removeEventListener('keydown', f)
-  }, [gruplar, yazdir])
+  }, [])
 
   const wordIndir = useCallback(async (secim = { gruplar: gruplar.map((_, i) => i), anahtar: true }) => {
     setWordMesgul(true)
@@ -90,7 +71,7 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
       console.error(e)
       bildir('Word dosyası oluşturulamadı: ' + (e.message || e), 'hata')
     } finally { setWordMesgul(false) }
-  }, [sinav, gruplar, kaydetSimdi])
+  }, [sinav, gruplar, kaydetSimdi, bildir])
 
   useEffect(() => {
     const f = () => wordIndir()
@@ -98,9 +79,8 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
     return () => window.removeEventListener('sh-word', f)
   }, [wordIndir])
 
-  const tumGruplarSecim = { gruplar: gruplar.map((_, i) => i), anahtar: false }
-  const sayfaToplam = gruplar.reduce((t, g) => t + (bilgi[g.harf]?.sayfa || 0), 0)
   const tasan = Object.values(bilgi).flatMap(x => x.tasan || [])
+  const ilkSayfa = bilgi[gruplar[0]?.harf]?.sayfa
 
   return (
     <div className="sh-onizleme">
@@ -108,25 +88,12 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
         <a className="sh-ust-geri" href={`#/sinav/${sinav.id}`} title="Düzenlemeye dön" aria-label="Düzenlemeye dön"><Simge ad="geri" boyut={18} /></a>
         <div className="sh-ust-ad">
           <span className="sh-ust-baslik salt">{sinav.baslik.sinavAdi || 'Adsız sınav'}</span>
-          <span className="sh-ust-alt">Önizleme · {soruSayisi(sinav.ogeler)} soru · {toplamPuan(sinav.ogeler)} puan{sayfaToplam ? ` · ${gruplar.length > 1 ? `grup başına ${bilgi.A?.sayfa || '–'}` : bilgi.A?.sayfa} sayfa` : ''}</span>
+          <span className="sh-ust-alt">Önizleme · {soruSayisi(sinav.ogeler)} soru · {puanMetni(toplamPuan(sinav.ogeler))} puan{ilkSayfa ? ` · ${gruplar.length > 1 ? `grup başına ${ilkSayfa}` : ilkSayfa} sayfa` : ''}</span>
         </div>
         <div className="sh-ust-eylem">
           <a className="ikincil sh-ust-dugme" href={`#/sinav/${sinav.id}`}><Simge ad="kalem" /><span>Düzenle</span></a>
           <button type="button" className="ikincil sh-ust-dugme" disabled={wordMesgul} onClick={() => wordIndir()}>{wordMesgul ? <span className="donen kucuk" /> : <Simge ad="word" />}<span>Word</span></button>
-          <div className="sh-bolunmus">
-            <button type="button" className="birincil" onClick={() => yazdir(tumGruplarSecim)}><Simge ad="yazdir" /><span>Yazdır / PDF</span></button>
-            <Acilir hiza="sag" genislik={290} tetik={<button type="button" className="birincil sh-bolunmus-ok" aria-label="Yazdırma seçenekleri"><Simge ad="asagi" boyut={16} /></button>}>
-              <div className="sh-menu-baslik">Yazdır ya da PDF olarak kaydet</div>
-              <MenuOge simge="kopya" aciklama={gruplar.length > 1 ? `${gruplar.map(g => g.harf).join(', ')} grupları art arda` : 'Öğrenci kâğıdı'} onClick={() => yazdir(tumGruplarSecim)}>{gruplar.length > 1 ? 'Tüm gruplar' : 'Sınav kâğıdı'}</MenuOge>
-              <MenuOge simge="anahtar" aciklama="Sınav kâğıtları + öğretmen nüshası" onClick={() => yazdir({ ...tumGruplarSecim, anahtar: true })}>Gruplar ve cevap anahtarı</MenuOge>
-              {gruplar.length > 1 && gruplar.map((g, i) => (
-                <MenuOge key={g.harf} simge="sayfa" onClick={() => yazdir({ gruplar: [i], anahtar: false })}>Yalnız {g.harf} grubu</MenuOge>
-              ))}
-              <MenuOge simge="anahtar" onClick={() => yazdir({ gruplar: [], anahtar: true })}>Yalnız cevap anahtarı</MenuOge>
-              <MenuAyrac />
-              <MenuOge simge="word" aciklama="Word'de açıp düzenlemek için .docx" onClick={() => wordIndir()}>Word olarak indir</MenuOge>
-            </Acilir>
-          </div>
+          <button type="button" className="birincil sh-yazdir-dugme" onClick={() => setYazdirPencere(true)}><Simge ad="yazdir" /><span>Yazdır / PDF</span></button>
         </div>
       </header>
 
@@ -134,7 +101,7 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
         <aside className="sh-oniz-yan">
           <section className="sh-oz-bolum">
             <h3><Simge ad="kopya" boyut={15} />Gruplar</h3>
-            <Secici etiket="Grup sayısı" deger={a.grupSayisi} onDegis={v => ayarla('grupSayisi', v)} secenekler={[[1, 'Tek'], [2, 'A–B'], [3, 'A–C'], [4, 'A–D']]} />
+            <GrupSecici deger={a.grupSayisi} onDegis={v => ayarla('grupSayisi', v)} optikUyari={testMi(sinav.ogeler)} />
             {a.grupSayisi > 1 && (
               <>
                 <Anahtar deger={a.soruKaristir} onDegis={v => ayarla('soruKaristir', v)}>Soru sırasını karıştır</Anahtar>
@@ -174,7 +141,7 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
               <>
                 <p>Cevap anahtarlarını optik okuyucuya aktarın; öğrencilerin optik formlarını kamerayla okuyup puanlayın. {gruplar.length > 1 && 'Gruplar kitapçık türü olarak aktarılır.'}</p>
                 <button type="button" className="birincil kucuk tam" onClick={() => setOptikPencere(true)}><Simge ad="tara" boyut={16} />Optik okuyucuya aktar</button>
-                <a className="sh-oz-baglanti" href="/optik_formu.pdf" download><Simge ad="indir" boyut={14} />Boş optik formu indir (PDF)</a>
+                <button type="button" className="ikincil kucuk tam" onClick={() => setYazdirPencere(true)}><Simge ad="yazdir" boyut={15} />Optik formları yazdır</button>
               </>
             ) : (
               <p className="sh-oz-not">{optik.neden}</p>
@@ -191,68 +158,272 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
               </button>
             ))}
             <button type="button" role="tab" aria-selected={sekme === 'anahtar'} className={sekme === 'anahtar' ? 'secili' : ''} onClick={() => setSekme('anahtar')}><Simge ad="anahtar" boyut={15} />Cevap anahtarı</button>
+            {optik.tamam && <button type="button" role="tab" aria-selected={sekme === 'optik'} className={sekme === 'optik' ? 'secili' : ''} onClick={() => setSekme('optik')}><Simge ad="tara" boyut={15} />Optik anahtar</button>}
           </div>
           <div className="sh-sayfalar">
-            {sekme === 'anahtar'
-              ? <CevapAnahtari sinav={sinav} gruplar={gruplar} olcek={olcek} />
-              : gruplar[sekme] && <GrupSayfalari key={gruplar[sekme].harf} sinav={sinav} grup={gruplar[sekme]} grupSayisi={gruplar.length} olcek={olcek}
+            {sekme === 'anahtar' ? <CevapAnahtari sinav={sinav} gruplar={gruplar} olcek={olcek} />
+              : sekme === 'optik' ? gruplar.slice(0, 4).map(g => (
+                <OptikFormSayfasi key={g.harf} kitapcik={g.harf} anahtar cevaplar={grupCevaplari(g)} olcek={olcek}
+                  etiket={`CEVAP ANAHTARI · ${g.harf}`} altEtiket={sinavBaslikMetni(sinav.baslik)} />
+              ))
+                : gruplar[sekme] && <GrupSayfalari key={gruplar[sekme].harf} sinav={sinav} grup={gruplar[sekme]} grupSayisi={gruplar.length} olcek={olcek}
                   hazir={(n, t) => setBilgi(b => (b[gruplar[sekme].harf]?.sayfa === n && JSON.stringify(b[gruplar[sekme].harf]?.tasan) === JSON.stringify(t) ? b : { ...b, [gruplar[sekme].harf]: { sayfa: n, tasan: t } }))} />}
           </div>
         </main>
       </div>
 
-      {baski && createPortal(
-        <div className="sh bs-baski-alani" aria-hidden="true">
-          {baski.gruplar.map(i => (
-            <GrupSayfalari key={GRUP_HARFLERI[i]} sinav={sinav} grup={gruplar[i]} grupSayisi={gruplar.length}
-              hazir={() => setBaskiHazir(h => ({ ...h, [i]: true }))} />
-          ))}
-          {baski.anahtar && <CevapAnahtari sinav={sinav} gruplar={gruplar} />}
-        </div>,
-        document.body,
-      )}
+      {is && createPortal(<BaskiAlani key={is.kimlik} sinav={sinav} gruplar={gruplar} is={is} onBitti={() => setIs(null)} />, document.body)}
 
-      {optikPencere && <OptikAktarPenceresi sinav={sinav} onKapat={() => setOptikPencere(false)} />}
+      {yazdirPencere && (
+        <YazdirmaPenceresi sinav={sinav} gruplar={gruplar} degistir={degistir} optikYapi={optikYapi} optikAnahtar={optik}
+          onKapat={() => setYazdirPencere(false)}
+          onYazdir={j => { setYazdirPencere(false); setIs({ ...j, kimlik: Date.now() }) }} />
+      )}
+      {optikPencere && <OptikAktarPenceresi sinav={sinav} degistir={degistir} onKapat={() => setOptikPencere(false)} />}
       {bildirim}
     </div>
   )
 }
 
-function OptikAktarPenceresi({ sinav, onKapat }) {
-  const mevcut = useMemo(() => optikDepo.yukle(), [])
-  const durum = useMemo(() => optikDurumu(sinav), [sinav])
-  const ogrenciVar = mevcut && mevcut.ogrenciler && mevcut.ogrenciler.length > 0
-  const [onay, setOnay] = useState(!ogrenciVar)
-  const kitaplar = Object.keys(durum.anahtarlar)
-  function aktar() {
-    const { _puanUyari, ...kayit } = durum
-    optikDepo.kaydet(kayit)
-    window.location.hash = '#/optik'
-  }
+// ------------------------------------------------------------------ yazdırma alanı
+/**
+ * Seçilen her şey gövdeye ayrı bir alan olarak çizilir (ekranda görünmez); görseller ve form yüklenince
+ * yazdırma penceresi açılır. Tarayıcının "PDF olarak kaydet" seçeneği aynı çıktıyı PDF yapar.
+ */
+function BaskiAlani({ sinav, gruplar, is, onBitti }) {
+  const kok = useRef(null)
+  const G = gruplar.length
+  useEffect(() => {
+    let iptal = false
+    const html = document.documentElement
+    const calis = async () => {
+      try { await document.fonts?.ready } catch { /* yok */ }
+      const imgs = Array.from(kok.current?.querySelectorAll('img') || [])
+      await Promise.all(imgs.map(i => (i.complete && i.naturalWidth ? null : i.decode ? i.decode().catch(() => {}) : new Promise(r => { i.onload = i.onerror = r }))))
+      await new Promise(r => requestAnimationFrame(() => setTimeout(r, 60)))
+      if (iptal) return
+      html.classList.add('sh-yazdir')
+      kok.current?.setAttribute('data-hazir', '1')
+      window.print()
+    }
+    calis()
+    // yazdırma penceresi kapanınca alan kaldırılır (afterprint göndermeyen tarayıcıda bir sonraki işe kadar görünmez kalır)
+    const bitti = () => { html.classList.remove('sh-yazdir'); onBitti() }
+    window.addEventListener('afterprint', bitti)
+    return () => { iptal = true; window.removeEventListener('afterprint', bitti); html.classList.remove('sh-yazdir') }
+  }, [])   // eslint-disable-line react-hooks/exhaustive-deps
+
+  const kitapcikHarfi = g => (is.kitapcik && G > 1 ? gruplar[g].harf : null)
   return (
-    <Pencere baslik="Optik okuyucuya aktar" simge="tara" onKapat={onKapat}
-      alt={<div className="dugmeler"><button type="button" className="ikincil" onClick={onKapat}>Vazgeç</button><button type="button" className="birincil" disabled={!onay} onClick={aktar}><Simge ad="tara" />Aktar ve okumaya başla</button></div>}>
-      <div className="sh-aktar-ozet">
-        <div><span>Sınav</span><b>{durum.ayar.sinavAdi}</b></div>
-        <div><span>Soru</span><b>{durum.ayar.soruSayisi}</b></div>
-        <div><span>Kitapçık</span><b>{kitaplar.join(', ')}</b></div>
-      </div>
-      <div className="sh-aktar-anahtar">
-        {kitaplar.map(k => (
-          <div key={k}><b>{k}</b><code>{durum.anahtarlar[k].slice(0, durum.ayar.soruSayisi).map(i => 'ABCDE'[i]).join('')}</code></div>
-        ))}
-      </div>
-      {kitaplar.length > 1 && <div className="bilgi-kutu"><Simge ad="bilgi" />Öğrenciler optik formda <b>kitapçık türü</b> olarak kendi grup harflerini işaretlemeli.</div>}
-      {durum._puanUyari && <div className="uyari-kutu"><Simge ad="uyari" />{durum._puanUyari}</div>}
-      {ogrenciVar && (
-        <div className="hata-kutu">
-          <Simge ad="uyari" />
-          <div>
-            Optik okuyucuda <b>{mevcut.ayar?.sinavAdi || 'bir sınav'}</b> için okunmuş <b>{mevcut.ogrenciler.length} öğrenci</b> var. Aktarırsanız bu sonuçlar silinir.
-            <label className="sh-onay"><input type="checkbox" checked={onay} onChange={e => setOnay(e.target.checked)} />Excel'i aldım, eski sonuçlar silinsin</label>
+    <div ref={kok} className="sh bs-baski-alani" aria-hidden="true">
+      {is.bloklar.map((b, i) => {
+        if (b.tur === 'kagit') return <GrupSayfaCizim key={i} sinav={sinav} grup={gruplar[b.g]} grupSayisi={G} plan={is.planlar[b.g]} />
+        if (b.tur === 'optik') return <OptikFormSayfasi key={i} kitapcik={kitapcikHarfi(b.g)} veri={{ 'data-kisi': b.kisi + 1 }} />
+        if (b.tur === 'optikAnahtar') {
+          return <OptikFormSayfasi key={i} kitapcik={gruplar[b.g].harf} anahtar cevaplar={grupCevaplari(gruplar[b.g])}
+            etiket={`CEVAP ANAHTARI · ${gruplar[b.g].harf}`} altEtiket={sinavBaslikMetni(sinav.baslik)} />
+        }
+        if (b.tur === 'bos') return <BosSayfa key={i} />
+        return <CevapAnahtari key={i} sinav={sinav} gruplar={gruplar} />
+      })}
+    </div>
+  )
+}
+
+// ------------------------------------------------------------------ yazdırma penceresi
+function YazdirmaPenceresi({ sinav, gruplar, degistir, optikYapi, optikAnahtar, onKapat, onYazdir }) {
+  const G = gruplar.length
+  const [secim, setSecim] = useState(() => baskiSecimiDuzelt(sinav.baski, G))
+  const [planlar, setPlanlar] = useState({})
+  const ayarla = (k, v) => setSecim(s => baskiSecimiDuzelt({ ...s, [k]: v }, G))
+  const optikUygun = optikYapi.tamam
+  const anahtarUygun = optikAnahtar.tamam
+  const optikVar = secim.optik && optikUygun
+  const kisiVar = secim.kagit || optikVar
+
+  const gecerli = g => { const p = planlar[g]; return p && !p.gecici && p.anahtar === olcumAnahtari(sinav, gruplar[g], G) }
+  const olculecek = secim.kagit ? secim.gruplar : []
+  const hazir = olculecek.every(gecerli)
+  const liste = useMemo(() => (hazir ? baskiListesi(secim, g => planlar[g].sayfalar.length, { optikUygun, anahtarUygun }) : null),
+    [hazir, secim, planlar, optikUygun, anahtarUygun])
+  const sayfa = liste ? liste.filter(x => x.tur !== 'anahtar').length : null
+  const bosIs = liste && liste.length === 0
+
+  const dag = useMemo(() => {
+    const say = {}
+    for (const g of dagilim(secim)) say[g] = (say[g] || 0) + 1
+    return secim.gruplar.map(g => `${gruplar[g].harf}: ${say[g] || 0}`).join(' · ')
+  }, [secim, gruplar])
+
+  function yazdir() {
+    if (!liste || bosIs) return
+    if (JSON.stringify(secim) !== JSON.stringify(sinav.baski || null)) degistir(s => ({ ...s, baski: secim }))
+    onYazdir({ bloklar: bloklar(liste), planlar, kitapcik: secim.kitapcik })
+  }
+
+  const grupDegistir = g => {
+    const var_ = secim.gruplar.includes(g)
+    if (var_ && secim.gruplar.length === 1) return
+    ayarla('gruplar', var_ ? secim.gruplar.filter(x => x !== g) : [...secim.gruplar, g])
+  }
+  const kagitSayfa = hazir && secim.kagit && secim.gruplar.length ? planlar[secim.gruplar[0]].sayfalar.length : null
+
+  return (
+    <Pencere baslik="Yazdır" altBaslik="Yazdırma penceresinde “PDF olarak kaydet” seçerseniz aynı çıktı PDF olur." simge="yazdir" genis className="sh-yazdir-pencere" onKapat={onKapat}
+      alt={(
+        <div className="sh-yazdir-alt">
+          <span className="sh-yazdir-ozet" aria-live="polite">
+            {!hazir ? <><span className="donen kucuk" />Sayfalar hazırlanıyor…</>
+              : bosIs ? 'Yazdırılacak bir şey seçilmedi.'
+                : <><b>{sayfa}</b> sayfa{secim.anahtar ? ' + cevap anahtarı' : ''}</>}
+          </span>
+          <div className="dugmeler">
+            <button type="button" className="ikincil" onClick={onKapat}>Vazgeç</button>
+            <button type="button" className="birincil sh-yazdir-onay" disabled={!hazir || bosIs} onClick={yazdir}><Simge ad="yazdir" />Yazdır</button>
           </div>
         </div>
+      )}>
+      <div className="sh-yazdir-bolum">
+        <Anahtar deger={secim.kagit} onDegis={v => ayarla('kagit', v)}
+          aciklama={kagitSayfa ? `${G > 1 ? 'Her grubun' : 'Sınav'} kâğıdı ${kagitSayfa} sayfa` : undefined}>Sınav kâğıtları</Anahtar>
+      </div>
+
+      {kisiVar && (
+        <div className="sh-yazdir-bolum">
+          <div className="sh-yazdir-baslik">Kaç kopya</div>
+          <Secici etiket="Kopya" deger={secim.kopya} onDegis={v => ayarla('kopya', v)}
+            secenekler={[['ogrenci', 'Öğrenci sayısı kadar'], ['grup', G > 1 ? 'Her gruptan 1 (fotokopi için)' : '1 kopya (fotokopi için)']]} />
+          {secim.kopya === 'ogrenci' && (
+            <div className="sh-yazdir-satir">
+              <span>Öğrenci sayısı</span>
+              <Sayac etiket="Öğrenci sayısı" deger={secim.ogrenci} min={1} maks={MAKS_OGRENCI} adim={1} birim="öğrenci" onDegis={v => ayarla('ogrenci', v === '' ? 1 : v)} />
+            </div>
+          )}
+          {G > 1 && (
+            <>
+              <div className="sh-yazdir-satir ustten">
+                <span>Gruplar</span>
+                <div className="sh-grup-sec" role="group" aria-label="Basılacak gruplar">
+                  {gruplar.map((g, i) => (
+                    <button key={g.harf} type="button" aria-pressed={secim.gruplar.includes(i)} className={secim.gruplar.includes(i) ? 'secili' : ''} onClick={() => grupDegistir(i)}>{g.harf}</button>
+                  ))}
+                </div>
+              </div>
+              {secim.kopya === 'ogrenci' && secim.gruplar.length > 1 && (
+                <p className="sh-oz-not sh-dagilim">{dag}. Kâğıtlar {secim.gruplar.slice(0, 3).map(g => gruplar[g].harf).join(', ')}{secim.gruplar.length > 3 ? '…' : ''} sırasıyla basılır; sırayla dağıtınca yan yana oturanlar farklı grup alır.</p>
+              )}
+            </>
+          )}
+        </div>
       )}
+
+      <div className={'sh-yazdir-bolum' + (optikUygun ? '' : ' pasif')}>
+        <div className="sh-yazdir-baslik"><Simge ad="tara" boyut={15} />Optik form</div>
+        {optikUygun ? (
+          <>
+            <Anahtar deger={secim.optik} onDegis={v => ayarla('optik', v)}
+              aciklama={secim.kopya === 'ogrenci' ? `${secim.ogrenci} optik form; her biri öğrencinin kâğıdının hemen arkasından` : 'Her kopyanın arkasına bir optik form'}>
+              Her öğrenciye optik form
+            </Anahtar>
+            {secim.optik && G > 1 && (
+              <Anahtar deger={secim.kitapcik} onDegis={v => ayarla('kitapcik', v)} aciklama="Formdaki kitapçık türü yuvarlağı öğrencinin grubuyla dolu basılır; yanlış kitapçık işaretlenemez">
+                Kitapçık türü işaretli olsun
+              </Anahtar>
+            )}
+            <Anahtar deger={secim.optikAnahtar && anahtarUygun} onDegis={v => ayarla('optikAnahtar', v)}
+              aciklama={anahtarUygun ? `Sona, her grup için cevapları işaretli bir optik form (${secim.gruplar.map(g => gruplar[g].harf).join(', ')}). Optik okuyucuda “Anahtarı kamerayla okut” ile okutulur.` : optikAnahtar.neden}>
+              Optikte işaretli cevap anahtarları
+            </Anahtar>
+          </>
+        ) : <p className="sh-oz-not">{optikYapi.neden}</p>}
+      </div>
+
+      <div className="sh-yazdir-bolum">
+        <div className="sh-yazdir-baslik"><Simge ad="anahtar" boyut={15} />Öğretmen</div>
+        <Anahtar deger={secim.anahtar} onDegis={v => ayarla('anahtar', v)} aciklama="Tüm grupların cevapları tablo halinde, en sonda">Cevap anahtarı</Anahtar>
+      </div>
+
+      <div className="sh-yazdir-bolum">
+        <Anahtar deger={secim.ciftTaraf} onDegis={v => ayarla('ciftTaraf', v)} aciklama="Her öğrencinin kâğıdı ve optik formu yeni bir yaprakta başlar (gerekirse boş sayfa eklenir)">Çift taraflı yazıcı</Anahtar>
+      </div>
+
+      {/* sayfa sayısı için gizli ölçüm */}
+      {olculecek.map(g => (
+        <GrupOlcer key={gruplar[g].harf} sinav={sinav} grup={gruplar[g]} grupSayisi={G} onPlan={p => setPlanlar(x => ({ ...x, [g]: p }))} />
+      ))}
+    </Pencere>
+  )
+}
+
+// ------------------------------------------------------------------ optiğe aktarma
+function OptikAktarPenceresi({ sinav, degistir, onKapat }) {
+  const mevcut = useMemo(() => optikDepo.yukle(), [])
+  const p = puanDurumu(sinav)
+  const [hata, setHata] = useState(null)
+  let durum = null, durumHata = null
+  if (p.esit) { try { durum = optikDurumu(sinav) } catch (e) { durumHata = e.message } }
+  const ogrenciVar = mevcut && mevcut.ogrenciler && mevcut.ogrenciler.length > 0
+  const [onay, setOnay] = useState(!ogrenciVar)
+  const kitaplar = durum ? Object.keys(durum.anahtarlar) : []
+  const N = soruSayisi(sinav.ogeler)
+  const hedefToplam = p.toplam > 0 ? p.toplam : 100
+
+  function esitle() {
+    degistir(s => ({ ...s, ogeler: puanlariDagit(s.ogeler, hedefToplam, true) }))
+  }
+
+  function aktar() {
+    setHata(null)
+    try {
+      const d = optikDurumu(sinav)
+      if (!optikDepo.kaydet(d)) throw new Error('Tarayıcı kaydı yazamadı (depolama dolu ya da gizli pencere olabilir).')
+      // yazılanı geri oku ve karşılaştır: optik okuyucu tam olarak bunu görecek
+      const geri = optikDepo.yukle()
+      if (!geri || JSON.stringify(geri.anahtarlar) !== JSON.stringify(d.anahtarlar) || geri.ayar.soruSayisi !== d.ayar.soruSayisi) throw new Error('Kayıt doğrulanamadı.')
+      window.location.hash = '#/optik'
+    } catch (e) { setHata(e.message || String(e)) }
+  }
+
+  return (
+    <Pencere baslik="Optik okuyucuya aktar" simge="tara" onKapat={onKapat}
+      alt={<div className="dugmeler"><button type="button" className="ikincil" onClick={onKapat}>Vazgeç</button><button type="button" className="birincil sh-aktar-onay" disabled={!onay || !durum} onClick={aktar}><Simge ad="tara" />Aktar ve okumaya başla</button></div>}>
+      {!p.esit ? (
+        <div className="sh-puan-esitle">
+          <div className="uyari-kutu"><Simge ad="uyari" />
+            <div>
+              Bu sınavda soru puanları farklı ({p.farkli.slice(0, 4).join(', ')}{p.farkli.length > 4 ? '…' : ''}). Optik okuyucu her soruyu <b>eşit</b> puanlar;
+              aktarmadan önce puanlar eşitlenmeli. Toplam <b>{puanMetni(hedefToplam)}</b> puan korunur, her soru <b>{puanMetni(hedefToplam / N)}</b> puan olur.
+            </div>
+          </div>
+          <button type="button" className="birincil tam" onClick={esitle}><Simge ad="yenile" />Puanları eşitle</button>
+        </div>
+      ) : durum ? (
+        <>
+          <div className="sh-aktar-ozet">
+            <div><span>Sınav</span><b>{durum.ayar.sinavAdi}</b></div>
+            <div><span>Soru</span><b>{durum.ayar.soruSayisi}</b></div>
+            <div><span>Soru puanı</span><b>{puanMetni(p.puan)}</b></div>
+            <div><span>Kitapçık</span><b>{kitaplar.join(', ')}</b></div>
+          </div>
+          <div className="sh-aktar-anahtar">
+            {kitaplar.map(k => (
+              <div key={k}><b>{k}</b><code>{durum.anahtarlar[k].slice(0, durum.ayar.soruSayisi).map(i => 'ABCDE'[i]).join('')}</code></div>
+            ))}
+          </div>
+          <p className="sh-oz-not">Toplam {puanMetni(p.toplam)} puan: optik okuyucu her doğruya {puanMetni(p.puan)} puan verir; kâğıttaki puanlarla aynıdır.</p>
+          {kitaplar.length > 1 && <div className="bilgi-kutu"><Simge ad="bilgi" /><div>Öğrenciler optik formda <b>kitapçık türü</b> olarak kendi grup harflerini işaretlemeli (ya da “Yazdır” penceresinden kitapçığı işaretli formlar basın).</div></div>}
+          {ogrenciVar && (
+            <div className="hata-kutu">
+              <Simge ad="uyari" />
+              <div>
+                Optik okuyucuda <b>{mevcut.ayar?.sinavAdi || 'bir sınav'}</b> için okunmuş <b>{mevcut.ogrenciler.length} öğrenci</b> var. Aktarırsanız bu sonuçlar silinir.
+                <label className="sh-onay"><input type="checkbox" checked={onay} onChange={e => setOnay(e.target.checked)} />Excel'i aldım, eski sonuçlar silinsin</label>
+              </div>
+            </div>
+          )}
+        </>
+      ) : <div className="hata-kutu"><Simge ad="uyari" /><div>{durumHata}</div></div>}
+      {hata && <div className="hata-kutu"><Simge ad="uyari" /><div>Aktarılamadı: {hata}</div></div>}
     </Pencere>
   )
 }

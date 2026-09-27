@@ -54,7 +54,7 @@ export const OgeKarti = memo(function OgeKarti({ oge, no, secili, islem, ayar, i
         </Acilir>
         {!bolum && (
           <label className="sh-puan-kutu" title="Bu sorunun puanı">
-            <input type="number" min="0" max="100" step="0.5" inputMode="decimal" value={oge.puan ?? ''} onChange={e => guncelle({ puan: e.target.value === '' ? '' : Math.max(0, Math.min(1000, parseFloat(e.target.value) || 0)) }, anahtar('puan'))} onBlur={e => { if (e.target.value === '') guncelle({ puan: 0 }) }} aria-label="Puan" />
+            <PuanGirdisi deger={oge.puan} onDegis={v => guncelle({ puan: v }, anahtar('puan'))} />
             <span>puan</span>
           </label>
         )}
@@ -92,6 +92,19 @@ export const OgeKarti = memo(function OgeKarti({ oge, no, secili, islem, ayar, i
     </div>
   )
 })
+
+/** Soru puanı: ekranda en çok iki ondalık (8,33) görünür; dokunulmadıkça kesin değer (8,3333…) korunur */
+function PuanGirdisi({ deger, onDegis }) {
+  const [yazi, setYazi] = useState(null)
+  const d = Number(deger) || 0
+  const cevir = t => parseFloat(String(t).replace(',', '.'))
+  return (
+    <input type="text" inputMode="decimal" aria-label="Puan" value={yazi ?? String(Math.round(d * 100) / 100).replace('.', ',')}
+      onChange={e => { const t = e.target.value; if (!/^\s*\d*[.,]?\d*\s*$/.test(t)) return; setYazi(t); const v = cevir(t); if (!Number.isNaN(v)) onDegis(Math.max(0, Math.min(1000, v))) }}
+      onBlur={() => { if (yazi === null) return; const v = cevir(yazi); setYazi(null); onDegis(Number.isNaN(v) ? 0 : Math.max(0, Math.min(1000, Math.round(v * 10000) / 10000))) }}
+      onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />
+  )
+}
 
 const YER_TUTUCU = {
   coktan: 'Soru kökünü yazın… (resim yapıştırabilir ya da sürükleyip bırakabilirsiniz)',

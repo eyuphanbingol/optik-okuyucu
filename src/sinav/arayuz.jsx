@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Simge from '../bilesenler/Simge.jsx'
+import { GRUP_HARFLERI, MAKS_GRUP, OPTIK_KITAPCIK } from './model.js'
 
 /** Açılır menü: tetikleyiciye göre konumlanır, dışarı tıklayınca / Esc ile kapanır. */
 export function Acilir({ tetik, children, hiza = 'sol', genislik, className = '', acikBaslat = false, onAcik }) {
@@ -119,20 +120,56 @@ export function Anahtar({ deger, onDegis, children, aciklama }) {
 
 export function Sayac({ deger, onDegis, min = 0, maks = 100, adim = 1, etiket, birim }) {
   const d = Number(deger) || 0
-  const ayarla = v => onDegis(Math.max(min, Math.min(maks, Math.round(v * 100) / 100)))
+  const [yazi, setYazi] = useState(null)       // yazarken ara metin ("8," gibi); bitince sayıya çevrilir
+  const sinirla = v => Math.max(min, Math.min(maks, v))
+  const ayarla = v => onDegis(sinirla(Math.round(v * 100) / 100))
+  const cevir = t => parseFloat(String(t).replace(',', '.'))
+  const gorunen = yazi ?? (deger === '' ? '' : String(Math.round(d * 100) / 100).replace('.', ','))
   return (
     <div className="sh-sayac" aria-label={etiket}>
       <button type="button" aria-label="Azalt" disabled={d <= min} onClick={() => ayarla(d - adim)}>−</button>
-      <input type="number" inputMode="decimal" value={deger === '' ? '' : d} min={min} max={maks} step={adim}
-        onChange={e => { const v = e.target.value; if (v === '') onDegis(''); else if (!Number.isNaN(parseFloat(v))) ayarla(parseFloat(v.replace(',', '.'))) }}
-        onBlur={e => { if (e.target.value === '') ayarla(min) }} />
+      <input type="text" inputMode="decimal" value={gorunen} aria-label={etiket}
+        onChange={e => { const t = e.target.value; setYazi(t); const v = cevir(t); if (!Number.isNaN(v) && /^\s*\d*[.,]?\d*\s*$/.test(t)) onDegis(sinirla(v)) }}
+        onBlur={() => { if (yazi === null) return; const v = cevir(yazi); setYazi(null); onDegis(sinirla(Number.isNaN(v) ? min : Math.round(v * 10000) / 10000)) }}
+        onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />
       {birim && <span className="sh-sayac-birim">{birim}</span>}
       <button type="button" aria-label="Artır" disabled={d >= maks} onClick={() => ayarla(d + adim)}>+</button>
     </div>
   )
 }
 
-/** Kısa süreli bildirim */
+/**
+ * Grup sayısı: öğretmen istediği kadar grup seçer (1 = tek grup, en çok 26: A–Z).
+ * Altında grupların harfleri görünür. optikUyari: sınav optikle okunacak türdeyse 4'ten fazla grupta not gösterir.
+ */
+export function GrupSecici({ deger, onDegis, optikUyari }) {
+  const n = Math.max(1, Math.min(MAKS_GRUP, Number(deger) || 1))
+  const [yazi, setYazi] = useState(null)          // kullanıcı yazarken ara değer
+  const ayarla = v => { const k = Math.max(1, Math.min(MAKS_GRUP, Math.round(Number(v) || 1))); setYazi(null); if (k !== n) onDegis(k) }
+  const harfler = GRUP_HARFLERI.slice(0, n).split('')
+  const gorunen = n <= 10 ? harfler : [...harfler.slice(0, 7), '…', ...harfler.slice(-2)]
+  return (
+    <div className="sh-grup-secici">
+      <div className="sh-grup-ust">
+        <div className="sh-sayac" aria-label="Grup sayısı" role="group">
+          <button type="button" aria-label="Grup azalt" disabled={n <= 1} onClick={() => ayarla(n - 1)}>−</button>
+          <input type="number" inputMode="numeric" min={1} max={MAKS_GRUP} aria-label="Grup sayısı" value={yazi ?? n}
+            onChange={e => { setYazi(e.target.value); const v = parseInt(e.target.value, 10); if (v >= 1 && v <= MAKS_GRUP) onDegis(v) }}
+            onBlur={() => ayarla(yazi ?? n)} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />
+          <button type="button" aria-label="Grup artır" disabled={n >= MAKS_GRUP} onClick={() => ayarla(n + 1)}>+</button>
+        </div>
+        <span className="sh-grup-ad">{n === 1 ? 'Tek grup' : `${n} grup`}</span>
+      </div>
+      <div className="sh-grup-harfler" aria-hidden="true">
+        {gorunen.map((h, i) => <i key={i} className={h === '…' ? 'ara' : ''}>{h}</i>)}
+      </div>
+      {optikUyari && n > OPTIK_KITAPCIK && (
+        <p className="sh-grup-not"><Simge ad="bilgi" boyut={14} />Optik formda {OPTIK_KITAPCIK} kitapçık türü (A–D) var. Kâğıtlar {n} grup basılır; optikle okumak için en çok {OPTIK_KITAPCIK} grup seçin.</p>
+      )}
+    </div>
+  )
+}
+
 export function useBildirim() {
   const [b, setB] = useState(null)
   useEffect(() => {

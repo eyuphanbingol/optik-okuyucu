@@ -67,19 +67,32 @@ E-posta ayarlanmasa da site çalışır; Excel **İndir** ya da **Paylaş** ile 
 
 ### Sınav hazırla
 
-1. **Yeni sınav:** şablon (Test, Yazılı, Karma, Boş sayfa), soru sayısı, şık sayısı (A–C / A–D / A–E), grup sayısı
-   (tek, A–B, A–C, A–D) ve kâğıt başlığı (okul, ders, sınıf, sınav adı). Hepsi sonradan değiştirilebilir.
+1. **Yeni sınav:** şablon (Test, Yazılı, Karma, Boş sayfa), soru sayısı, şık sayısı (A–C / A–D / A–E), **istenen sayıda grup**
+   (1 = tek grup … 26 = A–Z) ve kâğıt başlığı (okul, ders, sınıf, sınav adı, isteğe bağlı öğretmen adı — kâğıtta yalnızca ad soyad
+   yazar, "Öğretmen:" yazmaz). Hepsi sonradan değiştirilebilir.
 2. **Yazma:** sorular doğrudan kâğıdın üzerinde yazılır. Soru türleri: çoktan seçmeli, açık uçlu (klasik; çizgili ya da boş cevap alanı),
    kısa cevaplı, doğru / yanlış, boşluk doldurma (kelimeyi seçip **Boşluk yap** ya da `[köşeli parantez]`; isteğe bağlı kelime havuzu),
    eşleştirme ve numarasız bölüm başlıkları. Kalın / italik / altı çizili, üs / indis, liste, matematik sembolleri.
    Görsel: soruya ya da şıkka ekle, yapıştır ya da sürükle-bırak; boyut, hizalama, metnin yanında.
    Sorular sol panelden sürüklenerek sıralanır; her sorunun puanı ve kazanımı ayarlanır. Geri al / yinele (Ctrl+Z / Ctrl+Y), otomatik kayıt.
-3. **Önizle ve yazdır:** A4 sayfalar gerçek ölçüsünde; sorular sayfa arasında bölünmez. B, C, D gruplarında sorular (bölüm içinde)
+3. **Önizle ve yazdır:** A4 sayfalar gerçek ölçüsünde; sorular sayfa arasında bölünmez. B, C, D… gruplarında sorular (bölüm içinde)
    ve şıklar karıştırılır, eşleştirmenin sağ sütunu ve kelime havuzu her grupta ayrı sıradadır. Her grubun cevap anahtarı otomatik çıkar.
-   **Yazdır / PDF**, **Word (.docx)** (Word'de açıp düzenlenebilir) ve cevap anahtarı.
-4. **Optiğe aktar:** sınav yalnızca çoktan seçmeli sorulardan oluşuyorsa (en çok 80 soru, A–E) anahtarlar optik okuyucuya aktarılır;
-   gruplar kitapçık türü olur (A grubu → A kitapçığı).
-5. Sınavlar bu cihazda saklanır (IndexedDB). Başka cihaza taşımak için **Yedek dosyası indir** (.sinav) → **İçe aktar**.
+   **Word (.docx)** (Word'de açıp düzenlenebilir).
+4. **Yazdır penceresi:**
+   - *Öğrenci sayısı kadar* kâğıt (gruplar sırayla: A, B, C, A, B, C… — sırayla dağıtınca yan yana oturanlar farklı grup alır)
+     ya da *her gruptan 1* (fotokopi için). Basılacak gruplar tek tek seçilebilir.
+   - *Her öğrenciye optik form:* her öğrencinin kâğıdının hemen arkasından bir optik form; istenirse **kitapçık türü yuvarlağı
+     öğrencinin grubuyla dolu basılır** (öğrenci yanlış kitapçık işaretleyemez).
+   - *Optikte işaretli cevap anahtarları:* sona, her grup için cevapları, kitapçık türü ve CEVAP ANAHTARI yuvarlağı dolu bir optik form;
+     optik okuyucuda "Anahtarı kamerayla okut" ile okutulur.
+   - Cevap anahtarı tablosu, çift taraflı yazıcı (her kâğıt ve form yeni yaprakta başlar). "PDF olarak kaydet" aynı çıktıyı PDF yapar.
+   - Optik form, okuyucunun kullandığı formun birebir vektör kopyasıdır (`public/optik_formu.svg`, `optik_formu.pdf`'ten);
+     işaretler okuyucunun ölçtüğü yuvarlak merkezlerine (`src/omr/geometri.json`) basılır. Optik kodu ve form değişmedi.
+5. **Optiğe aktar:** sınav yalnızca çoktan seçmeli sorulardan oluşuyorsa (en çok 80 soru, A–E, en çok 4 grup — formda A–D kitapçık
+   türü var) anahtarlar optik okuyucuya aktarılır; gruplar kitapçık türü olur (A grubu → A kitapçığı). Optik okuyucu her soruyu eşit
+   puanlar: test şablonunda puanlar zaten eşittir (100 / 12 = 8,33…); farklı puanlı sınav sessizce aktarılmaz, aktarım penceresinde
+   tek tıkla eşitlenir. Böylece kâğıttaki puan ile optiğin hesapladığı puan her zaman aynıdır.
+6. Sınavlar bu cihazda saklanır (IndexedDB). Başka cihaza taşımak için **Yedek dosyası indir** (.sinav) → **İçe aktar**.
 
 ---
 
@@ -160,6 +173,7 @@ src/sinav/             sınav hazırlama modülü (ayrı yüklenir; optik kodunu
   Duzenleyici.jsx, Ogeler.jsx, Ozellikler.jsx, Duzenlenebilir.jsx   Word benzeri düzenleyici
   Baski.jsx / Onizleme.jsx  A4 sayfalama, yazdırma, cevap anahtarı · word.js  .docx çıktısı (docx kütüphanesi, tıklanınca yüklenir)
   depo.js / gorsel.js / yedek.js   IndexedDB kayıt, görseller, .sinav yedek dosyası · optikAktar.js  optiğe anahtar aktarımı
+  baski.js / OptikForm.jsx   yazdırma sırası (öğrenci sayısı, gruplar, çift taraf) · optik form sayfası + işaretler
 scripts/opencv-kopyala.mjs  derlemeden önce OpenCV'yi public/opencv/ altına kopyalar (+ hızlı iki parçalı sürüm)
 arac/                  form üretici, sahte kâğıt üretici ve tüm test araçları
 ```
@@ -198,7 +212,11 @@ node arac/js_test.mjs /tmp/deneme                            # sessiz hata sayı
 python3 arac/e2e_veri.py /tmp/e2e && python3 arac/e2e_video.py /tmp/e2e
 python3 arac/e2e_kamera_test.py /tmp/e2e http://localhost:4173/   # anahtar + öğrenciler canlı kamerayla, Excel
 python3 arac/yukleme_test.py http://localhost:4173/
-python3 arac/e2e_sinav_test.py http://localhost:4173/             # sınav hazırla: tüm soru türleri, görsel, A–D grupları,
+python3 arac/e2e_sinav_test.py http://localhost:4173/             # sınav hazırla: tüm soru türleri, görsel, gruplar (1–6),
                                                                   # anahtar doğrulaması, PDF, Word, yedek, optiğe aktarma
+python3 arac/optik_baski_test.py http://localhost:4173/           # yazdırılan optik formlar (kitapçıklı öğrenci + işaretli anahtar)
+                                                                  # -> PDF -> görüntü -> tarayıcı/telefon/whatsapp/video -> okuyucu
+python3 arac/e2e_optik_baski_kamera.py http://localhost:4173/     # basılan anahtar ve öğrenci formları kamerayla optiğe okutulur,
+                                                                  # puanlar/Excel ve "optiğe aktar" anahtarları karşılaştırılır
 # (arac/e2e_test.py ve arac/kamera_test.py kaldırılan "fotoğraftan okut" düğmesini kullanır; yerlerine e2e_kamera_test.py)
 ```

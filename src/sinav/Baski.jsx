@@ -6,7 +6,7 @@
  * Sorular bölünmez; bölüm başlığı sayfa ya da sütun sonunda yalnız kalmaz.
  */
 import { useLayoutEffect, useMemo, useRef, useState } from 'react'
-import { HARFLER, soruMu, sikDuzeni } from './model.js'
+import { HARFLER, soruMu, sikDuzeni, puanMetni } from './model.js'
 import { kucukHarf, bosluklar } from './karistir.js'
 import { temizle, kacis } from './metin.js'
 import { useGorsel } from './gorsel.js'
@@ -69,7 +69,7 @@ export function BaskiBaslik({ sinav, grup, grupSayisi }) {
         <table key={k} className="bs-puan-tablosu">
           <tbody>
             <tr><th>Soru</th>{satir.map(o => <td key={o.id}>{o.no}</td>)}{k === tablo.length - 1 && <td className="t">Toplam</td>}</tr>
-            <tr><th>Puan</th>{satir.map(o => <td key={o.id}>{o.puan || 0}</td>)}{k === tablo.length - 1 && <td className="t">{sorular.reduce((x, o) => x + (Number(o.puan) || 0), 0)}</td>}</tr>
+            <tr><th>Puan</th>{satir.map(o => <td key={o.id}>{puanMetni(o.puan)}</td>)}{k === tablo.length - 1 && <td className="t">{puanMetni(sorular.reduce((x, o) => x + (Number(o.puan) || 0), 0))}</td>}</tr>
             <tr className="alinan"><th>Alınan</th>{satir.map(o => <td key={o.id} />)}{k === tablo.length - 1 && <td className="t" />}</tr>
           </tbody>
         </table>
@@ -94,7 +94,7 @@ function SoruUst({ oge, ayar, children }) {
     <div className="bs-soru-ust">
       <span className="bs-no">{oge.no}.</span>
       <div className="bs-metin">
-        {ayar.puanGoster && <span className="bs-puan">({oge.puan || 0} puan)</span>}
+        {ayar.puanGoster && <span className="bs-puan">({puanMetni(oge.puan)} puan)</span>}
         {oge.gorsel && oge.gorsel.konum === 'yan' && <BaskiGorsel gorsel={oge.gorsel} />}
         <Html html={oge.metin} className="bs-metin-ic" />
         {oge.gorsel && oge.gorsel.konum !== 'yan' && <BaskiGorsel gorsel={oge.gorsel} />}
@@ -208,7 +208,7 @@ function AltBilgi({ sinav, grup, sayfa, toplam, grupSayisi }) {
   const a = sinav.ayar, b = sinav.baslik
   return (
     <div className="bs-altbilgi">
-      <span className="bs-ab-sol">{a.altBilgi}{b.ogretmen ? `${a.altBilgi ? ' — ' : ''}${b.ogretmen}` : ''}</span>
+      <span className="bs-ab-sol">{a.altBilgi && <i>{a.altBilgi}</i>}{b.ogretmen?.trim() && <b>{b.ogretmen.trim()}</b>}</span>
       <span className="bs-ab-sag">
         {grupSayisi > 1 && <b>{grup.harf} grubu</b>}
         {a.sayfaNo && <span>Sayfa {sayfa} / {toplam}</span>}
@@ -243,17 +243,25 @@ function yerlestir(yukseklikler, ogeler, baslikY, sayfaY, sutunSayisi) {
   return { sayfalar, tasan }
 }
 
-/** Bir grubun sayfaları. hazir(sayfaSayisi, tasanlar) yerleşim bitince çağrılır. */
-export function GrupSayfalari({ sinav, grup, grupSayisi, hazir, olcek }) {
+/** Ölçümü etkileyen her şey (sorular, başlık, ayarlar, grup sayısı): plan bu anahtarla eşleşmiyorsa eskidir */
+export function olcumAnahtari(sinav, grup, grupSayisi) {
+  return JSON.stringify([grup.harf, grup.ogeler, sinav.baslik, sinav.ayar, grupSayisi])
+}
+
+/**
+ * Bir grubun sayfa planını gizli bir alanda ölçer. onPlan({ anahtar, sayfalar, tasan }) yerleşim bitince
+ * (ve içerik değişince yeniden) çağrılır. Sorular bölünmez; bölüm başlığı sayfa sonunda yalnız kalmaz.
+ */
+export function GrupOlcer({ sinav, grup, grupSayisi, onPlan }) {
   const a = sinav.ayar
   const sutunSayisi = a.sutun === 2 ? 2 : 1
   const olcum = useRef(null)
-  const [plan, setPlan] = useState(null)
-  const anahtar = useMemo(() => JSON.stringify([grup.ogeler, sinav.baslik, a]), [grup, sinav.baslik, a])
+  const geri = useRef(onPlan)
+  geri.current = onPlan
+  const anahtar = useMemo(() => olcumAnahtari(sinav, grup, grupSayisi), [sinav, grup, grupSayisi])
 
   useLayoutEffect(() => {
     let iptal = false
-    setPlan(null)
     const kok = olcum.current
     if (!kok) return
     const olc = async () => {
@@ -263,56 +271,79 @@ export function GrupSayfalari({ sinav, grup, grupSayisi, hazir, olcek }) {
       await Promise.all(imgs.map(i => (i.complete ? null : i.decode ? i.decode().catch(() => {}) : new Promise(r => { i.onload = i.onerror = r }))))
       await new Promise(r => setTimeout(r, 0))
       if (iptal) return
-      // görsel adresleri ilk çizimde henüz yoksa yer tutucular ölçülür; adresler gelince tekrar ölçülür
-      const bekleyen = kok.querySelectorAll('.bs-gorsel-yer').length
       const mm = kok.querySelector('.bs-olcu-mm').getBoundingClientRect().height / 100
       const baslikY = kok.querySelector('.bs-olc-baslik').getBoundingClientRect().height
       const hs = Array.from(kok.querySelectorAll('.bs-olc-oge')).map(e => e.getBoundingClientRect().height)
       const { sayfalar, tasan } = yerlestir(hs, grup.ogeler, baslikY, ICERIK_Y * mm, sutunSayisi)
-      setPlan({ sayfalar, tasan, bekleyen })
-      hazir && hazir(sayfalar.length, tasan)
+      // görsel adresleri henüz gelmediyse (yer tutucu ölçüldüyse) plan geçici sayılır; adresler gelince yeniden ölçülür
+      const gecici = !!kok.querySelector('.bs-gorsel-yer')
+      geri.current && geri.current({ anahtar, sayfalar, tasan, gecici })
     }
     olc()
-    // görseller sonradan gelirse yeniden ölç
     const gozcu = new MutationObserver(() => { if (!kok.querySelector('.bs-gorsel-yer')) { gozcu.disconnect(); olc() } })
     if (kok.querySelector('.bs-gorsel-yer')) gozcu.observe(kok, { subtree: true, childList: true })
     return () => { iptal = true; gozcu.disconnect() }
-  }, [anahtar, sutunSayisi])
+  }, [anahtar])   // eslint-disable-line react-hooks/exhaustive-deps
 
-  const sayfaStil = { '--yazi': `${a.yaziBoyutu}pt` }
   const sinif = `bs-kagit yazi-${a.yaziTipi} sutun-${sutunSayisi}`
   return (
-    <>
-      <div ref={olcum} className={`bs-olcum ${sinif}`} style={sayfaStil} aria-hidden="true">
-        <div className="bs-olcu-mm" style={{ height: '100mm' }} />
-        <div className="bs-olc-baslik" style={{ width: `${ICERIK_G}mm` }}><BaskiBaslik sinav={sinav} grup={grup} grupSayisi={grupSayisi} /></div>
-        <div style={{ width: sutunSayisi === 2 ? `${(ICERIK_G - SAYFA.sutunArasi) / 2}mm` : `${ICERIK_G}mm` }}>
-          {grup.ogeler.map(o => <div key={o.id} className="bs-olc-oge"><BaskiOge oge={o} ayar={a} sutun={sutunSayisi} /></div>)}
-        </div>
+    <div ref={olcum} className={`bs-olcum ${sinif}`} style={{ '--yazi': `${a.yaziBoyutu}pt` }} aria-hidden="true">
+      <div className="bs-olcu-mm" style={{ height: '100mm' }} />
+      <div className="bs-olc-baslik" style={{ width: `${ICERIK_G}mm` }}><BaskiBaslik sinav={sinav} grup={grup} grupSayisi={grupSayisi} /></div>
+      <div style={{ width: sutunSayisi === 2 ? `${(ICERIK_G - SAYFA.sutunArasi) / 2}mm` : `${ICERIK_G}mm` }}>
+        {grup.ogeler.map(o => <div key={o.id} className="bs-olc-oge"><BaskiOge oge={o} ayar={a} sutun={sutunSayisi} /></div>)}
       </div>
-      {plan && plan.sayfalar.map((s, k) => (
-        <div key={k} className="bs-sayfa-sarmal" style={olcek ? { '--olcek': olcek } : undefined}>
-          <div className={`bs-sayfa ${sinif}`} style={sayfaStil} data-grup={grup.harf}>
-            {s.baslik ? <BaskiBaslik sinav={sinav} grup={grup} grupSayisi={grupSayisi} /> : (
-              <div className="bs-devam-ust">
-                <span>{[sinav.baslik.ders, sinav.baslik.sinavAdi].filter(Boolean).join(' · ')}</span>
-                {grupSayisi > 1 && <b className="bs-grup-rozet" title={`${grup.harf} grubu`}>{grup.harf}</b>}
-              </div>
-            )}
-            <div className="bs-sutunlar">
-              {s.sutunlar.map((sutun, j) => (
-                <div key={j} className="bs-sutun">
-                  {sutun.map(i => <BaskiOge key={grup.ogeler[i].id} oge={grup.ogeler[i]} ayar={a} sutun={sutunSayisi} />)}
-                </div>
-              ))}
-            </div>
-            <AltBilgi sinav={sinav} grup={grup} sayfa={k + 1} toplam={plan.sayfalar.length} grupSayisi={grupSayisi} />
+    </div>
+  )
+}
+
+/** Ölçülmüş plandan bir grubun A4 sayfalarını çizer (yazdırmada aynı plan öğrenci sayısı kadar tekrar çizilir) */
+export function GrupSayfaCizim({ sinav, grup, grupSayisi, plan, olcek }) {
+  const a = sinav.ayar
+  const sutunSayisi = a.sutun === 2 ? 2 : 1
+  const sayfaStil = { '--yazi': `${a.yaziBoyutu}pt` }
+  const sinif = `bs-kagit yazi-${a.yaziTipi} sutun-${sutunSayisi}`
+  return plan.sayfalar.map((s, k) => (
+    <div key={k} className="bs-sayfa-sarmal" style={olcek ? { '--olcek': olcek } : undefined}>
+      <div className={`bs-sayfa ${sinif}`} style={sayfaStil} data-grup={grup.harf} data-sayfa={k + 1}>
+        {s.baslik ? <BaskiBaslik sinav={sinav} grup={grup} grupSayisi={grupSayisi} /> : (
+          <div className="bs-devam-ust">
+            <span>{[sinav.baslik.ders, sinav.baslik.sinavAdi].filter(Boolean).join(' · ')}</span>
+            {grupSayisi > 1 && <b className="bs-grup-rozet" title={`${grup.harf} grubu`}>{grup.harf}</b>}
           </div>
+        )}
+        <div className="bs-sutunlar">
+          {s.sutunlar.map((sutun, j) => (
+            <div key={j} className="bs-sutun">
+              {sutun.map(i => <BaskiOge key={grup.ogeler[i].id} oge={grup.ogeler[i]} ayar={a} sutun={sutunSayisi} />)}
+            </div>
+          ))}
         </div>
-      ))}
-      {!plan && <div className="bs-sayfa-sarmal" style={olcek ? { '--olcek': olcek } : undefined}><div className={`bs-sayfa bs-yukleniyor ${sinif}`}><span className="donen" /></div></div>}
+        <AltBilgi sinav={sinav} grup={grup} sayfa={k + 1} toplam={plan.sayfalar.length} grupSayisi={grupSayisi} />
+      </div>
+    </div>
+  ))
+}
+
+/** Önizleme için: ölç + çiz. hazir(sayfaSayisi, tasanlar) yerleşim bitince çağrılır. */
+export function GrupSayfalari({ sinav, grup, grupSayisi, hazir, olcek }) {
+  const [plan, setPlan] = useState(null)
+  const anahtar = useMemo(() => olcumAnahtari(sinav, grup, grupSayisi), [sinav, grup, grupSayisi])
+  const gecerli = plan && plan.anahtar === anahtar
+  const a = sinav.ayar
+  return (
+    <>
+      <GrupOlcer sinav={sinav} grup={grup} grupSayisi={grupSayisi} onPlan={p => { setPlan(p); hazir && hazir(p.sayfalar.length, p.tasan) }} />
+      {gecerli
+        ? <GrupSayfaCizim sinav={sinav} grup={grup} grupSayisi={grupSayisi} plan={plan} olcek={olcek} />
+        : <div className="bs-sayfa-sarmal" style={olcek ? { '--olcek': olcek } : undefined}><div className={`bs-sayfa bs-yukleniyor bs-kagit yazi-${a.yaziTipi}`}><span className="donen" /></div></div>}
     </>
   )
+}
+
+/** Çift taraflı baskıda arka yüz için boş sayfa */
+export function BosSayfa() {
+  return <div className="bs-sayfa-sarmal"><div className="bs-sayfa bs-bos-sayfa" data-bos="1" /></div>
 }
 
 // ------------------------------------------------------------------ cevap anahtarı
@@ -337,7 +368,7 @@ export function CevapAnahtari({ sinav, gruplar, olcek }) {
             <section key={g.harf} className="bs-anahtar-grup">
               <div className="bs-anahtar-grup-baslik">
                 {gruplar.length > 1 ? <b>{g.harf} GRUBU</b> : <b>CEVAPLAR</b>}
-                <span>{g.anahtar.length} soru · {toplam} puan</span>
+                <span>{g.anahtar.length} soru · {puanMetni(toplam)} puan</span>
               </div>
               {coktan.length > 0 && (
                 <>
@@ -355,7 +386,7 @@ export function CevapAnahtari({ sinav, gruplar, olcek }) {
                       <tr key={x.no}>
                         <td className="no">{x.no}</td>
                         <td>{x.acik ? (x.uzun ? <span className="bs-ornek" dangerouslySetInnerHTML={{ __html: kacis(x.uzun).replace(/\n/g, '<br>') }} /> : <span className="bs-bos-cevap">Açık uçlu — örnek cevap girilmemiş</span>) : x.uzun}{x.konu && <small className="bs-konu">{x.konu}</small>}</td>
-                        <td className="puan">{x.puan || 0}</td>
+                        <td className="puan">{puanMetni(x.puan)}</td>
                       </tr>
                     ))}
                   </tbody>

@@ -9,7 +9,7 @@ import {
   TableLayoutType, TableRow, TextRun, TextWrappingSide, TextWrappingType, VerticalAlign, VerticalPositionRelativeFrom,
   WidthType, HeightRule, convertMillimetersToTwip as tw,
 } from 'docx'
-import { HARFLER, soruMu, sikDuzeni, gorselKimlikleri } from './model.js'
+import { HARFLER, soruMu, sikDuzeni, gorselKimlikleri, puanMetni } from './model.js'
 import { tumGruplar, kucukHarf } from './karistir.js'
 import { temizle } from './metin.js'
 import { gorselBaytlari } from './gorsel.js'
@@ -210,7 +210,7 @@ function kurucu(sinav, gorseller) {
         bloklar.push(bos({ spacing: { after: 0, line: 100, lineRule: LineRuleType.EXACT } }))
         bloklar.push(tablo([
           satir([th('Soru'), ...parca.map(o => k(o.no, true)), ...(sonMu ? [k('Toplam', true)] : [])], { yukseklik: 5 }),
-          satir([th('Puan'), ...parca.map(o => k(o.puan || 0)), ...(sonMu ? [k(toplam, true)] : [])], { yukseklik: 5 }),
+          satir([th('Puan'), ...parca.map(o => k(puanMetni(o.puan))), ...(sonMu ? [k(puanMetni(toplam), true)] : [])], { yukseklik: 5 }),
           satir([th('Alınan'), ...parca.map(() => k('')), ...(sonMu ? [k('')] : [])], { yukseklik: 7 }),
         ], gen, { kenar: CERCEVE('000000') }))
       }
@@ -237,7 +237,7 @@ function kurucu(sinav, gorseller) {
     const satirlar = satirlaraAyir(o.metin)
     const yan = o.gorsel && o.gorsel.konum === 'yan' ? gorselKosusu(o.gorsel, metinMm, true) : null
     const altGorsel = o.gorsel && o.gorsel.konum !== 'yan' ? gorselKosusu(o.gorsel, metinMm, false) : null
-    const puan = a.puanGoster ? [new TextRun({ children: [new Tab(), `(${o.puan || 0} puan)`], italics: true, size: boy - 3, color: GRI })] : []
+    const puan = a.puanGoster ? [new TextRun({ children: [new Tab(), `(${puanMetni(o.puan)} puan)`], italics: true, size: boy - 3, color: GRI })] : []
     const out = satirlar.map((s, i) => new Paragraph({
       keepNext: true, keepLines: true,
       tabStops: sekmeler,
@@ -404,7 +404,7 @@ function kurucu(sinav, gorseller) {
 
   // ---------------- alt bilgi
   function altBilgi(grup, grupSayisi, toplamTuru) {
-    const sol = `${a.altBilgi || ''}${bas.ogretmen ? `${a.altBilgi ? ' — ' : ''}${bas.ogretmen}` : ''}`
+    const ogretmen = (bas.ogretmen || '').trim()      // kâğıtta "Öğretmen:" yazmaz, yalnızca ad soyad
     const sag = []
     if (grupSayisi > 1) sag.push(new TextRun({ text: `${grup.harf} grubu`, bold: true, size: 16 }))
     if (a.sayfaNo) {
@@ -416,7 +416,11 @@ function kurucu(sinav, gorseller) {
       children: [new Paragraph({
         tabStops: [{ type: TabStopType.RIGHT, position: tw(ICERIK_MM) }],
         border: { top: { style: BorderStyle.SINGLE, size: 4, color: 'BFBFBF', space: 4 } },
-        children: [new TextRun({ text: sol, italics: true, size: 16, color: GRI }), new TextRun({ children: [new Tab()] }), ...sag],
+        children: [
+          ...(a.altBilgi ? [new TextRun({ text: a.altBilgi, italics: true, size: 16, color: GRI })] : []),
+          ...(ogretmen ? [new TextRun({ text: (a.altBilgi ? '    ' : '') + ogretmen, bold: true, size: 16, color: '333333' })] : []),
+          new TextRun({ children: [new Tab()] }), ...sag,
+        ],
       })],
     })
   }
@@ -464,7 +468,7 @@ function anahtarBolumu(sinav, gruplar, boy) {
       shading: { type: ShadingType.CLEAR, fill: 'F2F2F2', color: 'auto' },
       children: [
         new TextRun({ text: gruplar.length > 1 ? ` ${g.harf} GRUBU` : ' CEVAPLAR', bold: true, size: boy + 1 }),
-        new TextRun({ children: [new Tab(), `${g.anahtar.length} soru · ${toplam} puan `], size: boy - 3, color: GRI }),
+        new TextRun({ children: [new Tab(), `${g.anahtar.length} soru · ${puanMetni(toplam)} puan `], size: boy - 3, color: GRI }),
       ],
     }))
     if (coktan.length) {
@@ -501,7 +505,7 @@ function anahtarBolumu(sinav, gruplar, boy) {
         satirlar.push(satir([
           hucre([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: String(x.no), bold: true })] })], gen[0]),
           hucre(cevap, gen[1], { sol: 1.5 }),
-          hucre([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun(String(x.puan || 0))] })], gen[2]),
+          hucre([new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun(puanMetni(x.puan))] })], gen[2]),
         ]))
       }
       out.push(tablo(satirlar, gen, { kenar: CERCEVE('BFBFBF') }))
