@@ -54,10 +54,11 @@ export default function App() {
     <div className="uygulama" onPointerDown={sesiAc}>
       <header className="ust">
         <div className="ust-ic">
-          <div className="marka">
+          <a className="marka" href="#/" title="Ana sayfa" aria-label="Ana sayfaya dön">
+            <span className="marka-geri" aria-hidden="true"><Simge ad="geri" boyut={16} kalinlik={2.2} /></span>
             <Logo />
-            <div className="logo" aria-label="Optik Okuyucu">Optik Okuyucu</div>
-          </div>
+            <div className="logo">Optik Okuyucu</div>
+          </a>
           <div className={'okuyucu-rozet ' + (okuyucuDurum === 'hazir' ? 'hazir' : okuyucuDurum === 'yukleniyor' ? 'yukleniyor' : 'hata')}
             title={okuyucuDurum === 'hazir' ? 'Okuyucu hazır' : okuyucuDurum === 'yukleniyor' ? yukleme.mesaj : 'Okuyucu yüklenemedi'}>
             <span className="rozet-nokta" aria-hidden="true" />

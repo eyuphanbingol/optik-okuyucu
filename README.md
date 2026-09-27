@@ -1,5 +1,9 @@
 # Optik Okuyucu
 
+Ana sayfada iki ayrı bölüm var: **Sınav hazırla** (Word gibi sınav kâğıdı hazırlama, A–D grupları, cevap anahtarı, yazdırma / PDF / Word)
+ve **Optik okuma** (aşağıda anlatılan kamerayla okuma). İkisi birbirinden bağımsızdır; hazırlanan test sınavının anahtarları
+tek tıkla optik okuyucuya aktarılabilir.
+
 Öğretmen telefondan siteyi açar, sınav ayarlarını girer, cevap anahtarını okutur, sonra optik formları kameraya sırayla gösterir.
 Her kâğıt okunduğunda ekrana **✅ Ad Soyad — puan** düşer, altta canlı **SINAV SONUÇLARI** listesi oluşur.
 Bitince sonuçlar Excel'e dökülür ve istenen adrese e-postayla gönderilir.
@@ -60,6 +64,22 @@ E-posta ayarlanmasa da site çalışır; Excel **İndir** ya da **Paylaş** ile 
    okunur, karşılaştırılır ve kaydedilir. Sıradaki kâğıdı üstüne koymanız yeterli; aynı kâğıt iki kez sayılmaz.
 4. **Sonuç:** e-posta adresinizi yazıp gönderin ya da Excel'i indirin.
    Excel sayfaları: Sonuçlar, Sıralama, Cevaplar (renkli), Soru Analizi, Cevap Anahtarı, Bilgi.
+
+### Sınav hazırla
+
+1. **Yeni sınav:** şablon (Test, Yazılı, Karma, Boş sayfa), soru sayısı, şık sayısı (A–C / A–D / A–E), grup sayısı
+   (tek, A–B, A–C, A–D) ve kâğıt başlığı (okul, ders, sınıf, sınav adı). Hepsi sonradan değiştirilebilir.
+2. **Yazma:** sorular doğrudan kâğıdın üzerinde yazılır. Soru türleri: çoktan seçmeli, açık uçlu (klasik; çizgili ya da boş cevap alanı),
+   kısa cevaplı, doğru / yanlış, boşluk doldurma (kelimeyi seçip **Boşluk yap** ya da `[köşeli parantez]`; isteğe bağlı kelime havuzu),
+   eşleştirme ve numarasız bölüm başlıkları. Kalın / italik / altı çizili, üs / indis, liste, matematik sembolleri.
+   Görsel: soruya ya da şıkka ekle, yapıştır ya da sürükle-bırak; boyut, hizalama, metnin yanında.
+   Sorular sol panelden sürüklenerek sıralanır; her sorunun puanı ve kazanımı ayarlanır. Geri al / yinele (Ctrl+Z / Ctrl+Y), otomatik kayıt.
+3. **Önizle ve yazdır:** A4 sayfalar gerçek ölçüsünde; sorular sayfa arasında bölünmez. B, C, D gruplarında sorular (bölüm içinde)
+   ve şıklar karıştırılır, eşleştirmenin sağ sütunu ve kelime havuzu her grupta ayrı sıradadır. Her grubun cevap anahtarı otomatik çıkar.
+   **Yazdır / PDF**, **Word (.docx)** (Word'de açıp düzenlenebilir) ve cevap anahtarı.
+4. **Optiğe aktar:** sınav yalnızca çoktan seçmeli sorulardan oluşuyorsa (en çok 80 soru, A–E) anahtarlar optik okuyucuya aktarılır;
+   gruplar kitapçık türü olur (A grubu → A kitapçığı).
+5. Sınavlar bu cihazda saklanır (IndexedDB). Başka cihaza taşımak için **Yedek dosyası indir** (.sinav) → **İçe aktar**.
 
 ---
 
@@ -133,6 +153,13 @@ src/bilesenler/        Kamera (otomatik yakalama + çift okuma), Kontrol pencere
 src/yazitipi/          Geist yazı tipi (siteyle birlikte gelir, SIL OFL lisansı)
 src/mantik.js          puanlama, iki okumayı birleştirme, tekrar kontrolü
 src/excel.js           Excel çıktısı · api/eposta.js  e-posta sunucu fonksiyonu
+src/Kok.jsx            adresler: #/ ana sayfa · #/optik optik okuma · #/sinav sınavlarım · #/sinav/<id> düzenleyici · #/sinav/<id>/yazdir
+src/AnaSayfa.jsx       iki modülün seçildiği ana sayfa
+src/sinav/             sınav hazırlama modülü (ayrı yüklenir; optik kodunu kullanmaz, değiştirmez)
+  model.js / karistir.js   veri modeli, puanlar, eksik kontrolü · gruplar (tohumlu, her açılışta aynı) ve cevap anahtarları
+  Duzenleyici.jsx, Ogeler.jsx, Ozellikler.jsx, Duzenlenebilir.jsx   Word benzeri düzenleyici
+  Baski.jsx / Onizleme.jsx  A4 sayfalama, yazdırma, cevap anahtarı · word.js  .docx çıktısı (docx kütüphanesi, tıklanınca yüklenir)
+  depo.js / gorsel.js / yedek.js   IndexedDB kayıt, görseller, .sinav yedek dosyası · optikAktar.js  optiğe anahtar aktarımı
 scripts/opencv-kopyala.mjs  derlemeden önce OpenCV'yi public/opencv/ altına kopyalar (+ hızlı iki parçalı sürüm)
 arac/                  form üretici, sahte kâğıt üretici ve tüm test araçları
 ```
@@ -161,7 +188,7 @@ Okuma sonuçları değişmeden (aynı kâğıtlarda bayt bayt aynı çıktı) ş
 npm install
 npm run dev            # yerel geliştirme (http://localhost:5173)
 npm run build          # dist/ klasörüne derler
-npm test               # puanlama / karar mantığı birim testleri
+npm test               # puanlama / karar mantığı + sınav hazırlama (gruplar, anahtar, puan) birim testleri
 
 # okuyucu testleri (python3 + opencv-python + pymupdf + reportlab + numpy gerekir)
 python3 arac/form_uret.py                                    # formu / geometriyi / referansı yeniden üret
@@ -169,7 +196,9 @@ python3 arac/sentetik2.py /tmp/deneme 200 1 video,telefon,tarayici,whatsapp
 node arac/js_test.mjs /tmp/deneme                            # sessiz hata sayısını raporlar
 # tarayıcı testleri (playwright): önce `npm run build && npx vite preview`
 python3 arac/e2e_veri.py /tmp/e2e && python3 arac/e2e_video.py /tmp/e2e
-python3 arac/e2e_kamera_test.py /tmp/e2e http://localhost:4173/   # anahtar + öğrenciler canlı kamerayla, Excel, e-posta
+python3 arac/e2e_kamera_test.py /tmp/e2e http://localhost:4173/   # anahtar + öğrenciler canlı kamerayla, Excel
 python3 arac/yukleme_test.py http://localhost:4173/
+python3 arac/e2e_sinav_test.py http://localhost:4173/             # sınav hazırla: tüm soru türleri, görsel, A–D grupları,
+                                                                  # anahtar doğrulaması, PDF, Word, yedek, optiğe aktarma
 # (arac/e2e_test.py ve arac/kamera_test.py kaldırılan "fotoğraftan okut" düğmesini kullanır; yerlerine e2e_kamera_test.py)
 ```

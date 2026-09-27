@@ -11,7 +11,7 @@ def dene(ad, init_script=None, route_404=False, throttle=False):
         s.on("console", lambda m: konsol.append(m.text[:160]) if m.type in ("warning", "error") else None)
         if route_404: s.route("**/opencv/**", lambda r: r.fulfill(status=404, body="yok"))
         t = time.time()
-        s.goto(URL)
+        s.goto(URL.split("#")[0] + "#/optik")
         s.click("text=Devam: Cevap anahtarı")
         try:
             s.wait_for_function("() => document.body.innerText.includes('Anahtarı kamerayla okut') || document.body.innerText.includes('Okuyucu yüklenemedi.')", timeout=180000)

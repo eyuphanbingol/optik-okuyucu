@@ -9,11 +9,13 @@
     "prebuild": "node scripts/opencv-kopyala.mjs",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node test/puan.test.js",
-    "test:okuyucu": "node arac/js_test.mjs"
+    "test": "node test/puan.test.js && node test/sinav.test.js",
+    "test:okuyucu": "node arac/js_test.mjs",
+    "test:sinav": "python3 arac/e2e_sinav_test.py"
   },
   "dependencies": {
     "@techstark/opencv-js": "5.0.0-release.1",
+    "docx": "^9.7.2",
     "exceljs": "^4.4.0",
     "nodemailer": "^10.0.10",
     "react": "^18.3.1",

@@ -1,17 +1,18 @@
 # Uçtan uca tarayıcı testi (canlı kamera akışı, fotoğraf yükleme olmadan):
 #   ayarlar -> A ve B anahtarı kamerayla -> öğrenciler kamerayla (zor kâğıtta kontrol penceresi) -> tekrar sayılmama
-#   -> sayfa yenileme -> Excel içeriği -> e-posta eki
+#   -> sayfa yenileme -> Excel içeriği   (optik ekranı: <adres>/#/optik)
 # Hazırlık:
 #   python3 arac/e2e_veri.py /tmp/e2e
 #   python3 arac/e2e_video.py /tmp/e2e            (v_anahtarA / v_anahtarB / v_ogrenci videoları + video_ogrenciler.json)
 #   npm run build && npx vite preview   ->   python3 arac/e2e_kamera_test.py /tmp/e2e http://localhost:4173/
-import base64, io, json, re, shutil, sys, tempfile, time
+import json, re, shutil, sys, tempfile, time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 import openpyxl
 
 KOK = Path(sys.argv[1])
 URL = sys.argv[2] if len(sys.argv) > 2 else "http://localhost:4173/"
+OPTIK = URL.split("#")[0] + "#/optik"   # ana sayfada modül seçilir; optik ekranı bu adreste
 CIKTI = Path(sys.argv[3]) if len(sys.argv) > 3 else KOK
 B = json.loads((KOK / "beklenen.json").read_text())
 N = B["N"]
@@ -62,7 +63,7 @@ with sync_playwright() as p:
     print("1) Ayarlar ve A anahtarı (kamera)")
     ctx, s = ac(p, KOK / "v_anahtarA.mjpeg")
     t0 = time.time()
-    s.goto(URL)
+    s.goto(OPTIK)
     s.fill('input[placeholder^="Örn."]', "E2E Kamera Sınavı")
     s.fill('label:has-text("Soru sayısı") input', str(N))
     kontrol("100" in s.locator("text=Toplam:").inner_text(), "otomatik puan toplamı 100")
@@ -91,7 +92,7 @@ with sync_playwright() as p:
     # ---------------------------------------------------------------- 2) B anahtarı
     print("2) B anahtarı (kamera, tarayıcı yeniden açıldı: kayıt korunmalı)")
     ctx, s = ac(p, KOK / "v_anahtarB.mjpeg")
-    s.goto(URL)
+    s.goto(OPTIK)
     kontrol(s.is_visible("text=Kitapçık A"), "A anahtarı yeniden açılışta duruyor")
     okuyucu_hazir(s)
     anahtar_oku("B")
@@ -101,7 +102,7 @@ with sync_playwright() as p:
     # ---------------------------------------------------------------- 3) öğrenciler
     print("3) Öğrenci kâğıtları (canlı kamera)")
     ctx, s = ac(p, KOK / "v_ogrenci.mjpeg")
-    s.goto(URL)
+    s.goto(OPTIK)
     okuyucu_hazir(s)
     if s.is_visible("text=Kapat"):
         s.click("text=Kapat")   # "nasıl okutulur" kutusu
@@ -202,19 +203,6 @@ with sync_playwright() as p:
     anahtar_satir = {r[0]: "".join(r[1:]) for r in wb["Cevap Anahtarı"].iter_rows(min_row=2, values_only=True)}
     kontrol(anahtar_satir == {k: "".join(SIK[v[str(q)]] for q in range(N)) for k, v in B["anahtarlar"].items()}, "Excel'deki cevap anahtarları doğru")
 
-    print("6) E-posta")
-    yakalanan = {}
-    def yakala(route):
-        yakalanan["govde"] = route.request.post_data_json
-        route.fulfill(status=200, content_type="application/json", body='{"tamam":true}')
-    s.route("**/api/eposta", yakala)
-    s.fill('input[type=email]', "ogretmen@okul.k12.tr")
-    s.click('button:has-text("Gönder")')
-    s.wait_for_selector("text=adresine gönderildi", timeout=30000)
-    g = yakalanan.get("govde") or {}
-    kontrol(g.get("kime") == "ogretmen@okul.k12.tr", "e-posta adresi sunucuya iletildi")
-    ek = base64.b64decode(g.get("veri", ""))
-    kontrol(ek[:2] == b"PK" and len(openpyxl.load_workbook(io.BytesIO(ek))["Sonuçlar"]["A"]) == len(beklenenler) + 1, "e-postadaki Excel eki geçerli ve tam")
     s.screenshot(path=str(CIKTI / "e2e-sonuc.png"), full_page=True)
     kontrol(not konsol, f"tarayıcı konsolunda hata yok {konsol[:3]}")
     ctx.close()

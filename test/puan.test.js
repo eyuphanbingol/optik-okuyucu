@@ -82,7 +82,7 @@ t('tekrar kontrolü: aynı kâğıt / aynı numara farklı cevap / farklı öğr
 t('öğretmen kararı cevabı ezer', () => {
   const k = kayitOlustur(r0(), { kitapcik: 'A', kararlar: { 1: { t: 'c', k: 4 } } }, ayar())
   assert.deepEqual(k.cevaplar[1], { t: 'c', k: 4 })
-  assert.equal(k.notlar.length, 1)
+  assert.equal(k.notlar.length, 0)   // öğretmen onayı artık not olarak saklanmıyor
 })
 t('anahtar taslağı: eksik ve soru sayısından fazla işaret', () => {
   const r = r0(); r.cevaplar = [...r.cevaplar, { tur: 'cevap', k: 1, not: '' }]
