@@ -61,6 +61,22 @@ async function kullaniciOlustur(sb, kurumId, kullaniciAdi, sifre) {
   return { id: data.user.id, kullanici_adi: ad }
 }
 
+/** Kurumun sınavları, görsel kayıtları ve görsel dosyaları (gorseller/<kurum>/...). */
+async function alanVerileriniSil(sb, alan) {
+  for (;;) {
+    const { data: dosyalar, error } = await sb.storage.from('gorseller').list(alan, { limit: 1000 })
+    if (error || !dosyalar?.length) break
+    const { error: silHata } = await sb.storage.from('gorseller').remove(dosyalar.map(f => `${alan}/${f.name}`))
+    if (silHata) throw new Hata('Kurumun dosyaları silinemedi: ' + silHata.message, 500)
+    if (dosyalar.length < 1000) break
+  }
+  const [{ error: e1 }, { error: e2 }] = await Promise.all([
+    sb.from('gorseller').delete().eq('alan', alan),
+    sb.from('sinavlar').delete().eq('alan', alan),
+  ])
+  if (e1 || e2) throw new Hata('Kurumun verileri silinemedi: ' + (e1 || e2).message, 500)
+}
+
 async function kurumKullanicisi(sb, id) {
   const { data } = await sb.from('profiller').select('id, rol').eq('id', id).maybeSingle()
   if (!data) throw new Hata('Kullanıcı bulunamadı.', 404)
@@ -106,6 +122,7 @@ const ISLEMLER = {
   async kurumSil(sb, g) {
     if (!g.id) throw new Hata('Kurum belirtilmedi.')
     const { data: kisiler } = await sb.from('profiller').select('id').eq('kurum_id', g.id).eq('rol', 'kurum')
+    await alanVerileriniSil(sb, g.id)
     for (const p of kisiler || []) await sb.auth.admin.deleteUser(p.id)
     const { error } = await sb.from('kurumlar').delete().eq('id', g.id)
     if (error) throw new Hata('Kurum silinemedi: ' + error.message, 500)

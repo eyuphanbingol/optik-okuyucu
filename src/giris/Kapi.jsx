@@ -1,7 +1,8 @@
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from 'react'
 import { rotaCoz } from '../Kok.jsx'
 import Simge from '../bilesenler/Simge.jsx'
-import { supabase, girisAcik, yetkiGetir, onbellektenYetki, cikisYap } from './supabase.js'
+import { supabase, girisAcik, yetkiGetir, cikisYap } from './supabase.js'
+import { bulutHazirla, bulutKapat } from './bulut.js'
 import GirisEkrani from './GirisEkrani.jsx'
 import './giris.css'
 
@@ -32,6 +33,7 @@ function Oturum({ children }) {
   const yukle = useCallback(async (session, sessiz = false) => {
     if (!session) {
       sonKullanici.current = null
+      await bulutKapat(false)
       setDurum({ tur: 'giris' })
       return
     }
@@ -41,12 +43,15 @@ function Oturum({ children }) {
     try {
       const yetki = await yetkiGetir(id)
       if (sonKullanici.current !== id) return
-      setDurum(yetki ? { tur: 'hazir', id, yetki } : { tur: 'bagsiz' })
+      if (!yetki) { setDurum({ tur: 'bagsiz' }); return }
+      await bulutHazirla(id, yetki.alan, mesaj => {
+        if (sonKullanici.current === id) setDurum(d => (d.tur === 'hazir' ? d : { tur: 'yukleniyor', mesaj }))
+      })
+      if (sonKullanici.current !== id) return
+      setDurum({ tur: 'hazir', id, yetki })
     } catch {
       if (sonKullanici.current !== id) return
-      const y = onbellektenYetki(id)
-      if (y) setDurum({ tur: 'hazir', id, yetki: y })
-      else if (!sessiz) setDurum({ tur: 'hata' })
+      if (!sessiz) setDurum({ tur: 'hata' })
     }
   }, [])
 
@@ -82,7 +87,14 @@ function Oturum({ children }) {
   }, [yetki])
 
   if (durum.tur === 'yukleniyor') {
-    return <div className="giris-sahne"><span className="donen" aria-label="Yükleniyor" /></div>
+    return (
+      <div className="giris-sahne">
+        <div className="giris-yukleniyor" role="status">
+          <span className="donen" aria-hidden="true" />
+          <span>{durum.mesaj || 'Hesabınız açılıyor…'}</span>
+        </div>
+      </div>
+    )
   }
   if (durum.tur === 'giris') return <GirisEkrani />
   if (durum.tur === 'hata') {
@@ -90,7 +102,7 @@ function Oturum({ children }) {
       <Engel
         simge="uyari"
         baslik="Bağlantı kurulamadı"
-        metin="Hesap bilgileriniz alınamadı. İnternet bağlantınızı kontrol edip tekrar deneyin."
+        metin="Hesabınız ve verileriniz alınamadı. İnternet bağlantınızı kontrol edip tekrar deneyin."
         eylem={<button type="button" className="birincil" onClick={() => window.location.reload()}><Simge ad="yenile" boyut={17} />Tekrar dene</button>}
       />
     )

@@ -1,7 +1,11 @@
 /*
- * Sınavlar ve görseller tarayıcının kendi veritabanında (IndexedDB) saklanır: sunucuya hiçbir şey gitmez.
+ * Giriş açıkken sınavlar ve görseller kurumun hesabında (Supabase) saklanır, tarayıcıya yazılmaz (giris/bulut.js).
+ * Giriş kapalıysa tarayıcının kendi veritabanında (IndexedDB) saklanır.
  * IndexedDB kullanılamıyorsa (bazı gizli pencereler) bellekte tutulur ve arayüz uyarır.
  */
+import { girisAcik } from '../giris/supabase.js'
+import * as bulut from '../giris/bulut.js'
+
 const VT_AD = 'optik-okuyucu-sinav'
 const VT_SURUM = 1
 const PROFIL = 'optik-okuyucu.ogretmen'
@@ -52,20 +56,24 @@ function islem(depo, kip, fn) {
 
 // ------------------------------------------------------------------ sınavlar
 export async function sinavlariListele() {
+  if (girisAcik) return bulut.sinavlariListele()
   const liste = await islem('sinavlar', 'readonly', d => (d ? d.getAll() : [...bellek.sinavlar.values()]))
   return (liste || []).sort((a, b) => (b.guncelleme || 0) - (a.guncelleme || 0))
 }
 
 export function sinavGetir(id) {
+  if (girisAcik) return bulut.sinavGetir(id)
   return islem('sinavlar', 'readonly', d => (d ? d.get(id) : bellek.sinavlar.get(id)))
 }
 
 export function sinavKaydet(sinav) {
+  if (girisAcik) return bulut.sinavKaydet(sinav)
   const kopya = JSON.parse(JSON.stringify(sinav))
   return islem('sinavlar', 'readwrite', d => (d ? d.put(kopya) : bellek.sinavlar.set(kopya.id, kopya)))
 }
 
 export async function sinavSil(id) {
+  if (girisAcik) return bulut.sinavSil(id)
   const gorseller = await sinavGorselleri(id)
   await islem('gorseller', 'readwrite', d => {
     for (const g of gorseller) { if (d) d.delete(g.id); else bellek.gorseller.delete(g.id) }
@@ -75,19 +83,23 @@ export async function sinavSil(id) {
 
 // ------------------------------------------------------------------ görseller  { id, sinavId, blob, genislik, yukseklik, tur }
 export function gorselKaydet(g) {
+  if (girisAcik) return bulut.gorselKaydet(g)
   return islem('gorseller', 'readwrite', d => (d ? d.put(g) : bellek.gorseller.set(g.id, g)))
 }
 
 export function gorselGetir(id) {
+  if (girisAcik) return bulut.gorselGetir(id)
   return islem('gorseller', 'readonly', d => (d ? d.get(id) : bellek.gorseller.get(id)))
 }
 
 export function sinavGorselleri(sinavId) {
+  if (girisAcik) return bulut.sinavGorselleri(sinavId)
   return islem('gorseller', 'readonly', d => (d ? d.index('sinavId').getAll(sinavId) : [...bellek.gorseller.values()].filter(g => g.sinavId === sinavId)))
 }
 
 /** Sınavda artık kullanılmayan görselleri siler */
 export async function kullanilmayanGorselleriSil(sinavId, kullanilan) {
+  if (girisAcik) return bulut.kullanilmayanGorselleriSil(sinavId, kullanilan)
   const hepsi = await sinavGorselleri(sinavId)
   const silinecek = hepsi.filter(g => !kullanilan.has(g.id))
   if (!silinecek.length) return 0
@@ -97,9 +109,11 @@ export async function kullanilmayanGorselleriSil(sinavId, kullanilan) {
 
 // ------------------------------------------------------------------ öğretmen bilgileri (yeni sınavlarda hazır gelir)
 export function profilGetir() {
+  if (girisAcik) return bulut.profilGetir()
   try { return JSON.parse(localStorage.getItem(PROFIL) || '{}') || {} } catch { return {} }
 }
 
 export function profilKaydet(p) {
+  if (girisAcik) return bulut.profilKaydet(p)
   try { localStorage.setItem(PROFIL, JSON.stringify({ ...profilGetir(), ...p })) } catch { /* yok */ }
 }
