@@ -150,6 +150,7 @@
 .sh-yazdir-pencere .sh-secici button { height: auto; min-height: 36px; padding: 6px 8px; white-space: normal; line-height: 1.25; }
 
 .sh-anahtar {
+  position: relative;          /* gizli kutu etiketin içinde kalsın: tıklayınca odak ekranı kaydırmasın */
   display: flex;
   align-items: center;
   gap: 12px;
@@ -158,7 +159,7 @@
   font-size: 14px;
 }
 
-.sh-anahtar input { position: absolute; opacity: 0; pointer-events: none; }
+.sh-anahtar input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; pointer-events: none; }
 .sh-anahtar-metin { display: flex; flex-direction: column; flex: 1; line-height: 1.3; }
 .sh-anahtar-metin small { font-size: 12px; color: var(--soluk); }
 
@@ -456,6 +457,7 @@
   height: 100vh;
   height: 100dvh;
   overflow: hidden;
+  overflow: clip;              /* kabuk hiçbir zaman kaymaz (odaklanan bir öğe kaydırmaya çalışsa bile) */
 }
 
 .sh-onizleme { grid-template-rows: auto minmax(0, 1fr); }
@@ -602,7 +604,10 @@ input.sh-ust-baslik:focus { border-color: var(--ana); box-shadow: 0 0 0 3px var(
   scroll-behavior: smooth;
 }
 
-.sh-tuval-not { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 14px 0 0; font-size: 12.5px; color: var(--soluk); }
+.sh-tuval-not { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px; max-width: 794px; margin: 0 auto 12px; font-size: 12.5px; color: var(--soluk); text-align: center; }
+.sh-tuval-not b { color: var(--yazi-2); }
+.sh-tuval-not a { font-weight: 650; color: var(--ana); text-decoration: none; }
+.sh-tuval-not a:hover { text-decoration: underline; }
 
 /* ana hat */
 .sh-anahat-ic { display: flex; flex-direction: column; min-height: 100%; padding: 14px 10px; }
@@ -782,6 +787,15 @@ input.sh-ust-baslik:focus { border-color: var(--ana); box-shadow: 0 0 0 3px var(
 .sh-b-bilgi { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; margin: 6px 0 2px; font-size: 0.86em; color: var(--yazi-2); }
 .sh-b-bilgi label { display: inline-flex; align-items: center; gap: 4px; font-weight: 600; }
 .sh-b-bilgi input { width: 8.5em; text-transform: none !important; font-weight: 450 !important; text-align: left !important; border-bottom: 1px dotted #bbb !important; border-radius: 0 !important; }
+/* başlıkta puan tablosu (baskıdaki .bs-puan-tablosu ile aynı görünüm) */
+.sh-b-puan-tablosu { margin-top: 8px; font-size: 0.78em; }
+.sh-b-puan-tablosu table { width: 100%; border-collapse: collapse; text-align: center; }
+.sh-b-puan-tablosu table + table { margin-top: 4px; }
+.sh-b-puan-tablosu th, .sh-b-puan-tablosu td { border: 1px solid #222; padding: 2px 2px; min-width: 24px; }
+.sh-b-puan-tablosu th { width: 1%; white-space: nowrap; padding: 2px 8px; background: #f2f2f2; text-align: left; font-weight: 700; }
+.sh-b-puan-tablosu .t { font-weight: 700; padding: 2px 8px; white-space: nowrap; }
+.sh-b-puan-tablosu .alinan td, .sh-b-puan-tablosu .alinan th { height: 24px; }
+.sh-kagit-sayfano { margin-left: auto; font-style: normal !important; font-weight: 600; }
 .sh-b-yonerge { margin-top: 8px; text-align: left; font-size: 0.92em; color: var(--yazi-2); font-style: italic; }
 .sh-b-yonerge:empty::before { font-style: italic; }
 .sh-b-grup { display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid #111; border-radius: 8px; font-weight: 800; font-size: 1.25em; }
@@ -922,6 +936,8 @@ input.sh-ust-baslik:focus { border-color: var(--ana); box-shadow: 0 0 0 3px var(
 .sh-soru-no { font-weight: 700; min-width: 1.5em; padding-top: 1px; }
 .sh-soru-icerik { min-width: 0; display: flow-root; }
 .sh-soru-metni { margin-bottom: 4px; }
+/* "Soru puanları" açıkken baskıdaki gibi ilk satırın sağında */
+.sh-soru-puan { float: right; margin: 1px 0 2px 0.8em; font-weight: 700; font-size: 0.86em; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 .sh-bolum-govde { padding: 2px 0; }
 .sh-bolum-baslik { font-weight: 700; font-size: 1.05em; }

@@ -411,6 +411,38 @@ with sync_playwright() as p:
     kontrol(s.locator(".ana-son-sinavlar a, .son-sinav").count() >= 1 or "Deneme Testi" in s.locator("body").inner_text(), "ana sayfa: son sınavlar")
     s.screenshot(path=str(CIKTI / "07-ana-sayfa.png"))
 
+    print("9) Ayar anahtarları: ekran kaymaz, etkisi kâğıtta görünür")
+    s.set_viewport_size({"width": 1280, "height": 600})       # ayar paneli kaydırılmak zorunda kalsın
+    s.goto(URL + "#/sinav")
+    s.wait_for_selector(".sh-sinav-karti:not(.yeni)")
+    h = s.locator(".sh-sinav-karti", has_text="Deneme Testi").first.locator("a.sh-kart-baglanti").get_attribute("href")
+    s.goto(URL.split("#")[0] + h[h.index("#"):])
+    s.wait_for_selector(".sh-oge-coktan")
+    s.evaluate("() => { const o = document.querySelector('.sh-ozellik'); o.scrollTop = o.scrollHeight }")
+    kaymalar = []
+    for t in ["Soru puanları", "Puan tablosu", "Sayfa numarası", "Öğrenci bilgi alanı", "Soru puanları", "Puan tablosu", "Sayfa numarası", "Öğrenci bilgi alanı"]:
+        s.locator(f".sh-ozellik label.sh-anahtar:has-text('{t}')").click()
+        s.wait_for_timeout(150)
+        kaymalar.append(s.evaluate("() => document.querySelector('.sh-duzenleyici').scrollTop + scrollY"))
+    kontrol(not any(kaymalar), f"düzenleyici: anahtarlara basınca sayfa kaymıyor {kaymalar}")
+    puan_acik = s.locator(".sh-ozellik label.sh-anahtar:has-text('Soru puanları') input").is_checked()
+    kontrol(s.locator(".sh-soru-puan").count() == (12 if puan_acik else 0) and (not puan_acik or "(8,33 puan)" in s.locator(".sh-soru-puan").first.inner_text()),
+            "düzenleyici: 'Soru puanları' kâğıtta görünüyor (8,33 puan)")
+    s.locator(".sh-ozellik label.sh-anahtar:has-text('Puan tablosu')").click()
+    kontrol(s.locator(".sh-b-puan-tablosu td").count() >= 12 * 3, "düzenleyici: 'Puan tablosu' kâğıtta görünüyor")
+    s.locator(".sh-ozellik label.sh-anahtar:has-text('Puan tablosu')").click()
+    kontrol(s.locator(".sh-b-puan-tablosu").count() == 0, "düzenleyici: 'Puan tablosu' kapatılınca kalkıyor")
+    s.screenshot(path=str(CIKTI / "08-duzenleyici-anahtarlar.png"))
+    s.goto(s.url + "/yazdir")
+    s.wait_for_selector(".sh-sayfalar .bs-sayfa:not(.bs-yukleniyor)")
+    s.evaluate("() => { const o = document.querySelector('.sh-oniz-yan'); o.scrollTop = o.scrollHeight }")
+    kaymalar = []
+    for t in ["Puan tablosu", "Soru puanları", "Öğrenci bilgi alanı", "Puan tablosu", "Soru puanları", "Öğrenci bilgi alanı"]:
+        s.locator(f".sh-oniz-yan label.sh-anahtar:has-text('{t}')").click()
+        s.wait_for_timeout(150)
+        kaymalar.append(s.evaluate("() => document.querySelector('.sh-onizleme').scrollTop + scrollY"))
+    kontrol(not any(kaymalar), f"önizleme: anahtarlara basınca sayfa kaymıyor {kaymalar}")
+
     tarayici.close()
 
 kontrol(not konsol, "tarayıcı konsolunda hata yok" + ("" if not konsol else ": " + " | ".join(konsol[:5])))

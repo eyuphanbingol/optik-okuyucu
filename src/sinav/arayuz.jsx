@@ -108,6 +108,12 @@ export function Secici({ secenekler, deger, onDegis, etiket, kucuk }) {
   )
 }
 
+/** Ekranı dolduran kabuk (düzenleyici, önizleme) kaymamalı: overflow: clip desteklemeyen eski tarayıcılarda da geri al */
+export function kabukKaymasin(e) {
+  const el = e.currentTarget
+  if (e.target === el && (el.scrollTop || el.scrollLeft)) { el.scrollTop = 0; el.scrollLeft = 0 }
+}
+
 export function Anahtar({ deger, onDegis, children, aciklama }) {
   return (
     <label className="sh-anahtar">

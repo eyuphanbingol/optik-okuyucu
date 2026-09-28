@@ -2,7 +2,7 @@ import { memo, useEffect, useRef, useState } from 'react'
 import Simge from '../bilesenler/Simge.jsx'
 import Duzenlenebilir from './Duzenlenebilir.jsx'
 import { Acilir, MenuOge, MenuAyrac } from './arayuz.jsx'
-import { HARFLER, TURLER, sikDuzeni, yeniId } from './model.js'
+import { HARFLER, TURLER, sikDuzeni, yeniId, puanMetni } from './model.js'
 import { kucukHarf } from './karistir.js'
 import { useGorsel } from './gorsel.js'
 
@@ -76,6 +76,8 @@ export const OgeKarti = memo(function OgeKarti({ oge, no, secili, islem, ayar, i
         <div className="sh-soru">
           <span className="sh-soru-no">{no}.</span>
           <div className="sh-soru-icerik">
+            {/* "Soru puanları" açıksa kâğıtta basıldığı gibi sağda görünür */}
+            {ayar.puanGoster && <span className="sh-soru-puan" title="Sorunun puanı (baskıda da böyle görünür)">({puanMetni(oge.puan)} puan)</span>}
             {oge.gorsel && oge.gorsel.konum === 'yan' && <GorselBlok gorsel={oge.gorsel} onDegis={(g, a) => guncelle({ gorsel: g }, a)} onDegistir={gorselSec} />}
             <Duzenlenebilir className="sh-soru-metni" deger={oge.metin} onDegis={h => guncelle({ metin: h }, anahtar('metin'))}
               yerTutucu={YER_TUTUCU[oge.tur]} onGorsel={f => gorselDosya(f)} otomatikOdak={odakla} />

@@ -6,7 +6,7 @@ import { OptikFormSayfasi } from './OptikForm.jsx'
 import { tumGruplar } from './karistir.js'
 import { eksikler, soruSayisi, toplamPuan, puanMetni, puanlariDagit, soruMu, sinavBaslikMetni } from './model.js'
 import { duzMetin } from './metin.js'
-import { Secici, Anahtar, Pencere, Sayac, GrupSecici, useBildirim } from './arayuz.jsx'
+import { Secici, Anahtar, Pencere, Sayac, GrupSecici, useBildirim, kabukKaymasin } from './arayuz.jsx'
 import { optigeAktarilabilir, optikYapiUygun, optikDurumu, puanDurumu } from './optikAktar.js'
 import { baskiListesi, baskiSecimiDuzelt, dagilim, bloklar, MAKS_OGRENCI } from './baski.js'
 import { tablodanOgrenciler, dosyadanSatirlar, metniTabloyaCevir, ogrenciKodu } from './sinifListesi.js'
@@ -84,7 +84,7 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
   const ilkSayfa = bilgi[gruplar[0]?.harf]?.sayfa
 
   return (
-    <div className="sh-onizleme">
+    <div className="sh-onizleme" onScroll={kabukKaymasin}>
       <header className="sh-ust">
         <a className="sh-ust-geri" href={`#/sinav/${sinav.id}`} title="Düzenlemeye dön" aria-label="Düzenlemeye dön"><Simge ad="geri" boyut={18} /></a>
         <div className="sh-ust-ad">

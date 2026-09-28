@@ -3,8 +3,8 @@ import Simge from '../bilesenler/Simge.jsx'
 import Duzenlenebilir from './Duzenlenebilir.jsx'
 import { OgeKarti, TurMenusu } from './Ogeler.jsx'
 import Ozellikler from './Ozellikler.jsx'
-import { Acilir, MenuOge, MenuAyrac, useBildirim, Pencere } from './arayuz.jsx'
-import { yeniOge, numaralar, soruSayisi, toplamPuan, turDegistir, ogeKopyala, TURLER, yeniId, puanMetni } from './model.js'
+import { Acilir, MenuOge, MenuAyrac, useBildirim, Pencere, kabukKaymasin } from './arayuz.jsx'
+import { yeniOge, numaralar, soruSayisi, toplamPuan, turDegistir, ogeKopyala, TURLER, yeniId, puanMetni, soruMu } from './model.js'
 import { ozet, SEMBOLLER } from './metin.js'
 import { gorselEkle, useGorsel } from './gorsel.js'
 import { logoEkle, logoVarsayilaniKaldir } from './logo.js'
@@ -140,7 +140,7 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
   const toplam = toplamPuan(sinav.ogeler)
 
   return (
-    <div className={`sh-duzenleyici yazi-${sinav.ayar.yaziTipi}`} style={{ '--kagit-yazi': `${sinav.ayar.yaziBoyutu}pt` }}>
+    <div className={`sh-duzenleyici yazi-${sinav.ayar.yaziTipi}`} style={{ '--kagit-yazi': `${sinav.ayar.yaziBoyutu}pt` }} onScroll={kabukKaymasin}>
       {/* ---------------------------------------------------------------- üst çubuk */}
       <header className="sh-ust">
         <a className="sh-ust-geri" href="#/sinav" title="Sınavlarım" aria-label="Sınavlarım"><Simge ad="geri" boyut={18} /></a>
@@ -181,6 +181,10 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
 
         {/* ---------------------------------------------------------------- sayfa */}
         <main className="sh-tuval" onMouseDown={e => { if (e.target === e.currentTarget) setSecili(null) }}>
+          {sinav.ayar.sutun === 2 && (
+            <p className="sh-tuval-not"><Simge ad="sutun" boyut={15} />Sorular burada tek sütunda yazılır; <b>iki sütunlu düzen</b> önizlemede ve baskıda uygulanır.
+              <a href={`#/sinav/${sinav.id}/yazdir`}>Önizle</a></p>
+          )}
           <div className="sh-kagit" onMouseDown={e => { if (e.target === e.currentTarget) setSecili(null) }}>
             <div className={'sh-kagit-baslik' + (secili === '__baslik' ? ' secili' : '')} onMouseDown={() => setSecili(null)} id="oge-__baslik">
               <div className={'sh-b-ust' + (sinav.ayar.grupSayisi > 1 ? ' gruplu' : '')}>
@@ -208,6 +212,7 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
                 <label>Tarih<input value={b.tarih} onChange={e => bGuncelle('tarih', e.target.value)} placeholder="gg.aa.yyyy" /></label>
                 <label>Süre<input value={b.sure} onChange={e => bGuncelle('sure', e.target.value)} placeholder="40 dakika" /></label>
               </div>
+              {sinav.ayar.puanTablosu && <PuanTablosu ogeler={sinav.ogeler} no={no} />}
               <Duzenlenebilir className="sh-b-yonerge" deger={b.yonerge} onDegis={h => bGuncelle('yonerge', h)} yerTutucu="Sınav yönergesi (isteğe bağlı) — örn. Süre 40 dakikadır. Cevaplarınızı tükenmez kalemle yazınız." />
             </div>
 
@@ -232,11 +237,11 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
             )}
             <div className="sh-kagit-altbilgi">
               {sinav.ayar.altBilgi && <span>{sinav.ayar.altBilgi}</span>}
+              {sinav.ayar.sayfaNo && <span className="sh-kagit-sayfano" title="Baskıda her sayfanın altında: Sayfa 1 / 2, Sayfa 2 / 2 …">Sayfa 1 / …</span>}
               {/* kâğıtta "Öğretmen:" yazmaz; yalnızca ad soyad (isteğe bağlı) */}
               <input className="sh-b-ogretmen" value={b.ogretmen} onChange={e => bGuncelle('ogretmen', e.target.value)} placeholder="Öğretmen adı (isteğe bağlı)" aria-label="Öğretmen adı (isteğe bağlı)" />
             </div>
           </div>
-          {sinav.ayar.sutun === 2 && <p className="sh-tuval-not"><Simge ad="sutun" boyut={15} />İki sütunlu düzen önizlemede ve baskıda uygulanır.</p>}
         </main>
 
         {/* ---------------------------------------------------------------- özellikler */}
@@ -263,6 +268,28 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
         </Pencere>
       )}
       {bildirim}
+    </div>
+  )
+}
+
+/** "Puan tablosu" açıksa başlıkta, baskıdaki gibi: soru numaraları, puanları ve alınan puan kutuları (20 soruda bir satır) */
+function PuanTablosu({ ogeler, no }) {
+  const sorular = ogeler.filter(soruMu)
+  if (!sorular.length) return null
+  const tablo = []
+  for (let i = 0; i < sorular.length; i += 20) tablo.push(sorular.slice(i, i + 20))
+  const toplam = sorular.reduce((x, o) => x + (Number(o.puan) || 0), 0)
+  return (
+    <div className="sh-b-puan-tablosu" title="Puan tablosu (baskıda da böyle görünür)">
+      {tablo.map((satir, k) => (
+        <table key={k}>
+          <tbody>
+            <tr><th>Soru</th>{satir.map(o => <td key={o.id}>{no.get(o.id)}</td>)}{k === tablo.length - 1 && <td className="t">Toplam</td>}</tr>
+            <tr><th>Puan</th>{satir.map(o => <td key={o.id}>{puanMetni(o.puan)}</td>)}{k === tablo.length - 1 && <td className="t">{puanMetni(toplam)}</td>}</tr>
+            <tr className="alinan"><th>Alınan</th>{satir.map(o => <td key={o.id} />)}{k === tablo.length - 1 && <td className="t" />}</tr>
+          </tbody>
+        </table>
+      ))}
     </div>
   )
 }
