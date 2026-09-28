@@ -67,15 +67,15 @@ E-posta ayarlanmasa da site çalışır; Excel **İndir** ya da **Paylaş** ile 
 
 ### Sınav hazırla
 
-1. **Yeni sınav:** şablon (Test, Yazılı, Karma, Boş sayfa), soru sayısı, şık sayısı (A–C / A–D / A–E), **istenen sayıda grup**
-   (1 = tek grup … 26 = A–Z) ve kâğıt başlığı (okul, ders, sınıf, sınav adı, isteğe bağlı öğretmen adı — kâğıtta yalnızca ad soyad
+1. **Yeni sınav:** şablon (Test, Yazılı, Karma, Boş sayfa), soru sayısı, şık sayısı (A–C / A–D / A–E), **grup**: tek grup ya da
+   2, 3, 4 grup (A, B, C, D — optik formdaki kitapçık türleriyle aynı) ve kâğıt başlığı (okul, ders, sınıf, sınav adı, isteğe bağlı öğretmen adı — kâğıtta yalnızca ad soyad
    yazar, "Öğretmen:" yazmaz). Hepsi sonradan değiştirilebilir.
 2. **Yazma:** sorular doğrudan kâğıdın üzerinde yazılır. Soru türleri: çoktan seçmeli, açık uçlu (klasik; çizgili ya da boş cevap alanı),
    kısa cevaplı, doğru / yanlış, boşluk doldurma (kelimeyi seçip **Boşluk yap** ya da `[köşeli parantez]`; isteğe bağlı kelime havuzu),
    eşleştirme ve numarasız bölüm başlıkları. Kalın / italik / altı çizili, üs / indis, liste, matematik sembolleri.
    Görsel: soruya ya da şıkka ekle, yapıştır ya da sürükle-bırak; boyut, hizalama, metnin yanında.
    Sorular sol panelden sürüklenerek sıralanır; her sorunun puanı ve kazanımı ayarlanır. Geri al / yinele (Ctrl+Z / Ctrl+Y), otomatik kayıt.
-3. **Önizle ve yazdır:** A4 sayfalar gerçek ölçüsünde; sorular sayfa arasında bölünmez. B, C, D… gruplarında sorular (bölüm içinde)
+3. **Önizle ve yazdır:** A4 sayfalar gerçek ölçüsünde; sorular sayfa arasında bölünmez. B, C, D gruplarında sorular (bölüm içinde)
    ve şıklar karıştırılır, eşleştirmenin sağ sütunu ve kelime havuzu her grupta ayrı sıradadır. Her grubun cevap anahtarı otomatik çıkar.
    **Word (.docx)** (Word'de açıp düzenlenebilir).
 4. **Yazdır penceresi:**
@@ -88,8 +88,7 @@ E-posta ayarlanmasa da site çalışır; Excel **İndir** ya da **Paylaş** ile 
    - Cevap anahtarı tablosu, çift taraflı yazıcı (her kâğıt ve form yeni yaprakta başlar). "PDF olarak kaydet" aynı çıktıyı PDF yapar.
    - Optik form, okuyucunun kullandığı formun birebir vektör kopyasıdır (`public/optik_formu.svg`, `optik_formu.pdf`'ten);
      işaretler okuyucunun ölçtüğü yuvarlak merkezlerine (`src/omr/geometri.json`) basılır. Optik kodu ve form değişmedi.
-5. **Optiğe aktar:** sınav yalnızca çoktan seçmeli sorulardan oluşuyorsa (en çok 80 soru, A–E, en çok 4 grup — formda A–D kitapçık
-   türü var) anahtarlar optik okuyucuya aktarılır; gruplar kitapçık türü olur (A grubu → A kitapçığı). Optik okuyucu her soruyu eşit
+5. **Optiğe aktar:** sınav yalnızca çoktan seçmeli sorulardan oluşuyorsa (en çok 80 soru, A–E) anahtarlar optik okuyucuya aktarılır; gruplar kitapçık türü olur (A grubu → A kitapçığı). Optik okuyucu her soruyu eşit
    puanlar: test şablonunda puanlar zaten eşittir (100 / 12 = 8,33…); farklı puanlı sınav sessizce aktarılmaz, aktarım penceresinde
    tek tıkla eşitlenir. Böylece kâğıttaki puan ile optiğin hesapladığı puan her zaman aynıdır.
 6. Sınavlar bu cihazda saklanır (IndexedDB). Başka cihaza taşımak için **Yedek dosyası indir** (.sinav) → **İçe aktar**.
@@ -212,7 +211,7 @@ node arac/js_test.mjs /tmp/deneme                            # sessiz hata sayı
 python3 arac/e2e_veri.py /tmp/e2e && python3 arac/e2e_video.py /tmp/e2e
 python3 arac/e2e_kamera_test.py /tmp/e2e http://localhost:4173/   # anahtar + öğrenciler canlı kamerayla, Excel
 python3 arac/yukleme_test.py http://localhost:4173/
-python3 arac/e2e_sinav_test.py http://localhost:4173/             # sınav hazırla: tüm soru türleri, görsel, gruplar (1–6),
+python3 arac/e2e_sinav_test.py http://localhost:4173/             # sınav hazırla: tüm soru türleri, görsel, gruplar (tek–A/B/C/D),
                                                                   # anahtar doğrulaması, PDF, Word, yedek, optiğe aktarma
 python3 arac/optik_baski_test.py http://localhost:4173/           # yazdırılan optik formlar (kitapçıklı öğrenci + işaretli anahtar)
                                                                   # -> PDF -> görüntü -> tarayıcı/telefon/whatsapp/video -> okuyucu

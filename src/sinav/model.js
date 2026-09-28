@@ -16,10 +16,10 @@ import { duzMetin } from './metin.js'
 
 export const SURUM = 1
 export const HARFLER = 'ABCDE'
-/** Grup harfleri: öğretmen istediği kadar grup yapar (en çok 26: A–Z) */
-export const GRUP_HARFLERI = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+/** Gruplar A, B, C, D (optik formdaki kitapçık türleriyle aynı): tek grup ya da 2, 3, 4 grup */
+export const GRUP_HARFLERI = 'ABCD'
 export const MAKS_GRUP = GRUP_HARFLERI.length
-/** Optik formdaki kitapçık türü sayısı (A, B, C, D): optikle okunacak sınavda en çok bu kadar grup olabilir */
+/** Optik formdaki kitapçık türü sayısı (A, B, C, D) */
 export const OPTIK_KITAPCIK = 4
 export const grupSayisiSinirla = n => Math.max(1, Math.min(MAKS_GRUP, Math.round(Number(n) || 1)))
 /** "A", "A–B", "A–F" gibi */

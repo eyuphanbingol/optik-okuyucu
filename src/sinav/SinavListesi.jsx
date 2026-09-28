@@ -124,7 +124,7 @@ function SinavKarti({ s, onKopya, onYedek, onSil }) {
       <div className="sh-kucuk-kagit" aria-hidden="true">
         <span className="kk-baslik" /><span className="kk-alt" />
         <span className="kk-satir" /><span className="kk-satir kisa" /><span className="kk-satir" /><span className="kk-satir kisa" />
-        {g > 1 && <span className="kk-gruplar">{(g <= 4 ? GRUP_HARFLERI.slice(0, g).split('') : ['A', 'B', '…', GRUP_HARFLERI[g - 1]]).map((h, i) => <i key={i}>{h}</i>)}</span>}
+        {g > 1 && <span className="kk-gruplar">{GRUP_HARFLERI.slice(0, g).split('').map(h => <i key={h}>{h}</i>)}</span>}
       </div>
       <div className="sh-kart-metin">
         <b className="sh-kart-ad">{ad}</b>
@@ -203,8 +203,8 @@ export function YeniSinavPenceresi({ baslangicSablon = 'test', onKapat }) {
             <Secici etiket="Şık sayısı" deger={sik} onDegis={setSik} secenekler={[[3, 'A–C'], [4, 'A–D'], [5, 'A–E']]} />
           </div>
         )}
-        <div className="alan"><span className="alan-ad">Grup sayısı</span>
-          <GrupSecici deger={grup} onDegis={setGrup} optikUyari={sablon === 'test'} />
+        <div className="alan sh-alan-genis"><span className="alan-ad">Gruplar</span>
+          <GrupSecici deger={grup} onDegis={setGrup} />
         </div>
       </div>
       <div className="sh-form-bolum">

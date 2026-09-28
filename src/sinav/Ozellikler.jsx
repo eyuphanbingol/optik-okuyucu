@@ -2,7 +2,7 @@ import { useMemo, useRef } from 'react'
 import Simge from '../bilesenler/Simge.jsx'
 import { Anahtar, Secici, Sayac, Acilir, GrupSecici } from './arayuz.jsx'
 import { TurMenusu } from './Ogeler.jsx'
-import { TURLER, soruSayisi, toplamPuan, eksikler, puanlariDagit, puanMetni, testMi } from './model.js'
+import { TURLER, soruSayisi, toplamPuan, eksikler, puanlariDagit, puanMetni } from './model.js'
 import { duzMetin } from './metin.js'
 
 /** Sağ panel: seçili soru yoksa sınav ayarları, varsa sorunun özellikleri */
@@ -47,7 +47,7 @@ function SinavAyarlari({ sinav, degistir, islem }) {
       </div>
 
       <Bolum baslik="Gruplar" simge="kopya">
-        <GrupSecici deger={a.grupSayisi} onDegis={v => ayarla('grupSayisi', v)} optikUyari={testMi(sinav.ogeler)} />
+        <GrupSecici deger={a.grupSayisi} onDegis={v => ayarla('grupSayisi', v)} />
         {a.grupSayisi > 1 && (
           <>
             <Anahtar deger={a.soruKaristir} onDegis={v => ayarla('soruKaristir', v)} aciklama="Bölüm başlıkları yerinde kalır">Soru sırasını karıştır</Anahtar>

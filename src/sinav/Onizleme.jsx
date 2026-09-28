@@ -4,7 +4,7 @@ import Simge from '../bilesenler/Simge.jsx'
 import { GrupSayfalari, GrupSayfaCizim, GrupOlcer, CevapAnahtari, BosSayfa, SAYFA, olcumAnahtari } from './Baski.jsx'
 import { OptikFormSayfasi } from './OptikForm.jsx'
 import { tumGruplar } from './karistir.js'
-import { eksikler, soruSayisi, toplamPuan, puanMetni, puanlariDagit, testMi, soruMu, sinavBaslikMetni } from './model.js'
+import { eksikler, soruSayisi, toplamPuan, puanMetni, puanlariDagit, soruMu, sinavBaslikMetni } from './model.js'
 import { duzMetin } from './metin.js'
 import { Secici, Anahtar, Pencere, Sayac, GrupSecici, useBildirim } from './arayuz.jsx'
 import { optigeAktarilabilir, optikYapiUygun, optikDurumu, puanDurumu } from './optikAktar.js'
@@ -101,7 +101,7 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
         <aside className="sh-oniz-yan">
           <section className="sh-oz-bolum">
             <h3><Simge ad="kopya" boyut={15} />Gruplar</h3>
-            <GrupSecici deger={a.grupSayisi} onDegis={v => ayarla('grupSayisi', v)} optikUyari={testMi(sinav.ogeler)} />
+            <GrupSecici deger={a.grupSayisi} onDegis={v => ayarla('grupSayisi', v)} />
             {a.grupSayisi > 1 && (
               <>
                 <Anahtar deger={a.soruKaristir} onDegis={v => ayarla('soruKaristir', v)}>Soru sırasını karıştır</Anahtar>

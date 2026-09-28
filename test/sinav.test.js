@@ -167,10 +167,10 @@ t('optiğe aktarım: yalnız çoktan seçmeli, eksiksiz sınav', () => {
   assert.equal(optigeAktarilabilir(k).tamam, false)
 })
 
-t('istenen sayıda grup (1–26): harfler, farklı sıralar, her grubun anahtarı doğru', () => {
-  assert.equal(MAKS_GRUP, 26)
-  assert.equal(grupAraligi(6), 'A–F')
-  for (const G of [1, 2, 3, 5, 6, 8, 12, 26]) {
+t('gruplar A, B, C, D (tek grup … 4 grup): harfler, farklı sıralar, her grubun anahtarı doğru', () => {
+  assert.equal(MAKS_GRUP, 4)
+  assert.equal(GRUP_HARFLERI, 'ABCD')
+  for (const G of [1, 2, 3, 4]) {
     const s = testSinavi(20, G)
     const g = tumGruplar(s)
     assert.equal(g.length, G)
@@ -182,17 +182,15 @@ t('istenen sayıda grup (1–26): harfler, farklı sıralar, her grubun anahtar�
         assert.equal(o.siklarSirali[o.dogruIndex].metin, asil.siklar.find(k => k.id === asil.dogru).metin)
       }
     }
-    if (G <= 8) assert.equal(new Set(g.map(x => x.ogeler.map(o => o.id).join())).size, G, `${G} grubun soru sıraları farklı`)
+    assert.equal(new Set(g.map(x => x.ogeler.map(o => o.id).join())).size, G, `${G} grubun soru sıraları farklı`)
   }
-  const s = testSinavi(5, 40)
-  assert.equal(tumGruplar(s).length, 26, '26 grubun üstü sınırlanır')
-})
-t('optik: 4\'ten fazla grup aktarılmaz (formda A–D), neden açıkça söylenir', () => {
-  const s = testSinavi(10, 5)
-  const u = optigeAktarilabilir(s)
-  assert.equal(u.tamam, false); assert.equal(u.grup, true); assert.match(u.neden, /4 kitapçık/)
-  assert.throws(() => optikDurumu(s))
-  assert.equal(optikYapiUygun(testSinavi(10, 4)).tamam, true)
+  // eski kayıtta 4'ten fazla grup varsa A–D'ye indirilir; optik aktarımı yine hatasız
+  const s = testSinavi(10, 7)
+  assert.equal(tumGruplar(s).length, 4)
+  assert.equal(yeniSinav({ sablon: 'test', grupSayisi: 9 }).ayar.grupSayisi, 4)
+  assert.equal(optigeAktarilabilir(s).tamam, true)
+  assert.deepEqual(Object.keys(optikDurumu(s).anahtarlar), ['A', 'B', 'C', 'D'])
+  assert.equal(grupAraligi(3), 'A–C')
 })
 t('optik: farklı puanlı sınav sessizce aktarılmaz; eşitlenince aktarılır', () => {
   const s = testSinavi(10, 2)

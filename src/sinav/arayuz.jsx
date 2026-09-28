@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Simge from '../bilesenler/Simge.jsx'
-import { GRUP_HARFLERI, MAKS_GRUP, OPTIK_KITAPCIK } from './model.js'
+import { GRUP_HARFLERI, MAKS_GRUP } from './model.js'
 
 /** Açılır menü: tetikleyiciye göre konumlanır, dışarı tıklayınca / Esc ile kapanır. */
 export function Acilir({ tetik, children, hiza = 'sol', genislik, className = '', acikBaslat = false, onAcik }) {
@@ -139,33 +139,25 @@ export function Sayac({ deger, onDegis, min = 0, maks = 100, adim = 1, etiket, b
 }
 
 /**
- * Grup sayısı: öğretmen istediği kadar grup seçer (1 = tek grup, en çok 26: A–Z).
- * Altında grupların harfleri görünür. optikUyari: sınav optikle okunacak türdeyse 4'ten fazla grupta not gösterir.
+ * Grup sayısı: tek grup ya da A–B, A–B–C, A–B–C–D (optik formdaki kitapçık türleri). Tek dokunuşla seçilir;
+ * altında basılacak grupların harfleri görünür.
  */
-export function GrupSecici({ deger, onDegis, optikUyari }) {
+export function GrupSecici({ deger, onDegis }) {
   const n = Math.max(1, Math.min(MAKS_GRUP, Number(deger) || 1))
-  const [yazi, setYazi] = useState(null)          // kullanıcı yazarken ara değer
-  const ayarla = v => { const k = Math.max(1, Math.min(MAKS_GRUP, Math.round(Number(v) || 1))); setYazi(null); if (k !== n) onDegis(k) }
-  const harfler = GRUP_HARFLERI.slice(0, n).split('')
-  const gorunen = n <= 10 ? harfler : [...harfler.slice(0, 7), '…', ...harfler.slice(-2)]
   return (
     <div className="sh-grup-secici">
-      <div className="sh-grup-ust">
-        <div className="sh-sayac" aria-label="Grup sayısı" role="group">
-          <button type="button" aria-label="Grup azalt" disabled={n <= 1} onClick={() => ayarla(n - 1)}>−</button>
-          <input type="number" inputMode="numeric" min={1} max={MAKS_GRUP} aria-label="Grup sayısı" value={yazi ?? n}
-            onChange={e => { setYazi(e.target.value); const v = parseInt(e.target.value, 10); if (v >= 1 && v <= MAKS_GRUP) onDegis(v) }}
-            onBlur={() => ayarla(yazi ?? n)} onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }} />
-          <button type="button" aria-label="Grup artır" disabled={n >= MAKS_GRUP} onClick={() => ayarla(n + 1)}>+</button>
-        </div>
-        <span className="sh-grup-ad">{n === 1 ? 'Tek grup' : `${n} grup`}</span>
+      <div className="sh-secici" role="radiogroup" aria-label="Grup sayısı">
+        {Array.from({ length: MAKS_GRUP }, (_, i) => i + 1).map(k => (
+          <button key={k} type="button" role="radio" aria-checked={n === k} className={n === k ? 'secili' : ''} onClick={() => { if (k !== n) onDegis(k) }}
+            title={k === 1 ? 'Tek grup' : `${GRUP_HARFLERI.slice(0, k).split('').join(', ')} grupları`}>
+            {k === 1 ? 'Tek grup' : `${k} grup`}
+          </button>
+        ))}
       </div>
       <div className="sh-grup-harfler" aria-hidden="true">
-        {gorunen.map((h, i) => <i key={i} className={h === '…' ? 'ara' : ''}>{h}</i>)}
+        {GRUP_HARFLERI.split('').map((h, i) => <i key={h} className={i < n ? '' : 'yok'}>{h}</i>)}
+        <span>{n === 1 ? 'Herkese aynı kâğıt' : `${GRUP_HARFLERI.slice(0, n).split('').join(', ')} grupları`}</span>
       </div>
-      {optikUyari && n > OPTIK_KITAPCIK && (
-        <p className="sh-grup-not"><Simge ad="bilgi" boyut={14} />Optik formda {OPTIK_KITAPCIK} kitapçık türü (A–D) var. Kâğıtlar {n} grup basılır; optikle okumak için en çok {OPTIK_KITAPCIK} grup seçin.</p>
-      )}
     </div>
   )
 }

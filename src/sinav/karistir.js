@@ -1,8 +1,8 @@
 /*
- * Gruplar (A, B, C, …): aynı sınavın karıştırılmış sürümleri ve cevap anahtarları. Grup sayısı serbesttir (A–Z).
+ * Gruplar (A, B, C, D): aynı sınavın karıştırılmış sürümleri ve cevap anahtarları.
  *
  *  - A grubu öğretmenin yazdığı sıradadır.
- *  - B, C, D, …: (ayar açıksa) sorular kendi bölümleri içinde karıştırılır, bölüm başlıkları yerinde kalır;
+ *  - B, C, D: (ayar açıksa) sorular kendi bölümleri içinde karıştırılır, bölüm başlıkları yerinde kalır;
  *    çoktan seçmeli şıklar karıştırılır ("şıkları sabitle" işaretli sorular hariç).
  *  - Eşleştirmenin sağ sütunu ve boşluk doldurmanın kelime havuzu her grupta (A dahil) karıştırılır;
  *    yoksa cevaplar sıradan okunurdu.
