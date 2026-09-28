@@ -45,6 +45,7 @@ export async function yedektenYukle(dosya) {
     if (o.gorsel) o.gorsel = donustur(o.gorsel)
     if (o.siklar) for (const s of o.siklar) if (s.gorsel) s.gorsel = donustur(s.gorsel)
   }
+  if (sinav.baslik) for (const t of ['logoSol', 'logoSag']) if (sinav.baslik[t]) sinav.baslik[t] = donustur(sinav.baslik[t])
   for (const [eski, yeni] of yeniKimlik) await gorselDataUrldenKaydet(yeni, sinav.id, veri.gorseller[eski])
   await sinavKaydet(sinav)
   return sinav
@@ -70,6 +71,7 @@ export async function sinavKopyala(sinav, adEki = ' (kopya)') {
     if (o.gorsel) o.gorsel = donustur(o.gorsel)
     if (o.siklar) for (const s of o.siklar) if (s.gorsel) s.gorsel = donustur(s.gorsel)
   }
+  for (const t of ['logoSol', 'logoSag']) if (kopya.baslik[t]) kopya.baslik[t] = donustur(kopya.baslik[t])
   await sinavKaydet(kopya)
   return kopya
 }

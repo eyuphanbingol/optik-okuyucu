@@ -3,7 +3,8 @@
  *
  * secim = {
  *   kagit: bool          sınav kâğıtları
- *   kopya: 'grup' | 'ogrenci'   her gruptan bir asıl (fotokopi için) ya da öğrenci sayısı kadar
+ *   kopya: 'grup' | 'ogrenci' | 'liste'   her gruptan bir asıl (fotokopi için), öğrenci sayısı kadar ya da sınıf listesindeki
+ *                                         her öğrenciye bir (kâğıtta ve optik formda adı / numarası hazır)
  *   ogrenci: number      öğrenci sayısı (kopya 'ogrenci' iken)
  *   gruplar: [indeks]    basılacak gruplar (öğrencilere sırayla dağıtılır: A, B, C, A, B, C…)
  *   optik: bool          her öğrenciye bir optik form (kâğıdının hemen arkasından)
@@ -28,15 +29,16 @@ export function baskiSecimiDuzelt(secim, grupSayisi) {
   s.gruplar = [...new Set(s.gruplar)].sort((a, b) => a - b)
   if (!s.gruplar.length) s.gruplar = v.gruplar
   s.ogrenci = Math.max(1, Math.min(MAKS_OGRENCI, Math.round(Number(s.ogrenci) || 1)))
-  if (s.kopya !== 'grup') s.kopya = 'ogrenci'
+  if (!['grup', 'ogrenci', 'liste'].includes(s.kopya)) s.kopya = 'ogrenci'
   return s
 }
 
-/** Öğrenci -> grup dağılımı: [g, g, ...] */
-export function dagilim(secim) {
+/** Öğrenci -> grup dağılımı: [g, g, ...]. listeSayisi: sınıf listesindeki öğrenci sayısı (kopya 'liste') */
+export function dagilim(secim, listeSayisi = 0) {
   const gs = secim.gruplar
   if (secim.kopya === 'grup') return [...gs]
-  return Array.from({ length: secim.ogrenci }, (_, i) => gs[i % gs.length])
+  const n = secim.kopya === 'liste' ? listeSayisi : secim.ogrenci
+  return Array.from({ length: n }, (_, i) => gs[i % gs.length])
 }
 
 /**
@@ -44,11 +46,11 @@ export function dagilim(secim) {
  * optikUygun: optik form basılabilir mi (yalnız çoktan seçmeli, en çok 4 grup …)
  * anahtarUygun: işaretli anahtar formu basılabilir mi (tüm doğru cevaplar işaretli)
  */
-export function baskiListesi(secim, sayfaSayisi, { optikUygun = true, anahtarUygun = true } = {}) {
+export function baskiListesi(secim, sayfaSayisi, { optikUygun = true, anahtarUygun = true, listeSayisi = 0 } = {}) {
   const liste = []
   const optik = secim.optik && optikUygun
   if (secim.kagit || optik) {
-    dagilim(secim).forEach((g, kisi) => {
+    dagilim(secim, listeSayisi).forEach((g, kisi) => {
       if (secim.kagit) {
         const n = sayfaSayisi(g)
         for (let i = 0; i < n; i++) liste.push({ tur: 'kagit', g, kisi, sayfa: i })

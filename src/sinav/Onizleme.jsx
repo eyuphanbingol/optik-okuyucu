@@ -9,6 +9,7 @@ import { duzMetin } from './metin.js'
 import { Secici, Anahtar, Pencere, Sayac, GrupSecici, useBildirim } from './arayuz.jsx'
 import { optigeAktarilabilir, optikYapiUygun, optikDurumu, puanDurumu } from './optikAktar.js'
 import { baskiListesi, baskiSecimiDuzelt, dagilim, bloklar, MAKS_OGRENCI } from './baski.js'
+import { tablodanOgrenciler, dosyadanSatirlar, metniTabloyaCevir, ogrenciKodu } from './sinifListesi.js'
 import * as optikDepo from '../depo.js'
 import { indirBlob, dosyaAdi } from './yedek.js'
 
@@ -217,8 +218,9 @@ function BaskiAlani({ sinav, gruplar, is, onBitti }) {
   return (
     <div ref={kok} className="sh bs-baski-alani" aria-hidden="true">
       {is.bloklar.map((b, i) => {
-        if (b.tur === 'kagit') return <GrupSayfaCizim key={i} sinav={sinav} grup={gruplar[b.g]} grupSayisi={G} plan={is.planlar[b.g]} />
-        if (b.tur === 'optik') return <OptikFormSayfasi key={i} kitapcik={kitapcikHarfi(b.g)} veri={{ 'data-kisi': b.kisi + 1 }} />
+        const ogrenci = is.ogrenciler && b.kisi != null ? is.ogrenciler[b.kisi] : undefined
+        if (b.tur === 'kagit') return <GrupSayfaCizim key={i} sinav={sinav} grup={gruplar[b.g]} grupSayisi={G} plan={is.planlar[b.g]} ogrenci={ogrenci} />
+        if (b.tur === 'optik') return <OptikFormSayfasi key={i} kitapcik={kitapcikHarfi(b.g)} ogrenci={ogrenci} etiket={ogrenci?.sinif || undefined} veri={{ 'data-kisi': b.kisi + 1 }} />
         if (b.tur === 'optikAnahtar') {
           return <OptikFormSayfasi key={i} kitapcik={gruplar[b.g].harf} anahtar cevaplar={grupCevaplari(gruplar[b.g])}
             etiket={`CEVAP ANAHTARI · ${gruplar[b.g].harf}`} altEtiket={sinavBaslikMetni(sinav.baslik)} />
@@ -244,21 +246,23 @@ function YazdirmaPenceresi({ sinav, gruplar, degistir, optikYapi, optikAnahtar, 
   const gecerli = g => { const p = planlar[g]; return p && !p.gecici && p.anahtar === olcumAnahtari(sinav, gruplar[g], G) }
   const olculecek = secim.kagit ? secim.gruplar : []
   const hazir = olculecek.every(gecerli)
-  const liste = useMemo(() => (hazir ? baskiListesi(secim, g => planlar[g].sayfalar.length, { optikUygun, anahtarUygun }) : null),
-    [hazir, secim, planlar, optikUygun, anahtarUygun])
+  const sinifListesi = sinav.sinifListesi && Array.isArray(sinav.sinifListesi.ogrenciler) ? sinav.sinifListesi : null
+  const listeSayisi = secim.kopya === 'liste' && sinifListesi ? sinifListesi.ogrenciler.length : 0
+  const liste = useMemo(() => (hazir ? baskiListesi(secim, g => planlar[g].sayfalar.length, { optikUygun, anahtarUygun, listeSayisi }) : null),
+    [hazir, secim, planlar, optikUygun, anahtarUygun, listeSayisi])
   const sayfa = liste ? liste.filter(x => x.tur !== 'anahtar').length : null
   const bosIs = liste && liste.length === 0
 
   const dag = useMemo(() => {
     const say = {}
-    for (const g of dagilim(secim)) say[g] = (say[g] || 0) + 1
+    for (const g of dagilim(secim, listeSayisi)) say[g] = (say[g] || 0) + 1
     return secim.gruplar.map(g => `${gruplar[g].harf}: ${say[g] || 0}`).join(' · ')
-  }, [secim, gruplar])
+  }, [secim, gruplar, listeSayisi])
 
   function yazdir() {
     if (!liste || bosIs) return
     if (JSON.stringify(secim) !== JSON.stringify(sinav.baski || null)) degistir(s => ({ ...s, baski: secim }))
-    onYazdir({ bloklar: bloklar(liste), planlar, kitapcik: secim.kitapcik })
+    onYazdir({ bloklar: bloklar(liste), planlar, kitapcik: secim.kitapcik, ogrenciler: secim.kopya === 'liste' && sinifListesi ? sinifListesi.ogrenciler : null })
   }
 
   const grupDegistir = g => {
@@ -274,7 +278,7 @@ function YazdirmaPenceresi({ sinav, gruplar, degistir, optikYapi, optikAnahtar, 
         <div className="sh-yazdir-alt">
           <span className="sh-yazdir-ozet" aria-live="polite">
             {!hazir ? <><span className="donen kucuk" />Sayfalar hazırlanıyor…</>
-              : bosIs ? 'Yazdırılacak bir şey seçilmedi.'
+              : bosIs ? (secim.kopya === 'liste' && !listeSayisi ? 'Önce sınıf listesini yükleyin.' : 'Yazdırılacak bir şey seçilmedi.')
                 : <><b>{sayfa}</b> sayfa{secim.anahtar ? ' + cevap anahtarı' : ''}</>}
           </span>
           <div className="dugmeler">
@@ -292,7 +296,11 @@ function YazdirmaPenceresi({ sinav, gruplar, degistir, optikYapi, optikAnahtar, 
         <div className="sh-yazdir-bolum">
           <div className="sh-yazdir-baslik">Kaç kopya</div>
           <Secici etiket="Kopya" deger={secim.kopya} onDegis={v => ayarla('kopya', v)}
-            secenekler={[['ogrenci', 'Öğrenci sayısı kadar'], ['grup', G > 1 ? 'Her gruptan 1 (fotokopi için)' : '1 kopya (fotokopi için)']]} />
+            secenekler={[['ogrenci', 'Öğrenci sayısı kadar'], ['liste', 'Sınıf listesinden'], ['grup', G > 1 ? 'Her gruptan 1 (fotokopi için)' : '1 kopya (fotokopi için)']]} />
+          {secim.kopya === 'liste' && (
+            <SinifListesiAlani liste={sinifListesi} gruplar={gruplar} secim={secim}
+              onDegis={l => degistir(s => ({ ...s, sinifListesi: l }))} />
+          )}
           {secim.kopya === 'ogrenci' && (
             <div className="sh-yazdir-satir">
               <span>Öğrenci sayısı</span>
@@ -309,7 +317,7 @@ function YazdirmaPenceresi({ sinav, gruplar, degistir, optikYapi, optikAnahtar, 
                   ))}
                 </div>
               </div>
-              {secim.kopya === 'ogrenci' && secim.gruplar.length > 1 && (
+              {secim.kopya !== 'grup' && secim.gruplar.length > 1 && (secim.kopya === 'ogrenci' || listeSayisi > 0) && (
                 <p className="sh-oz-not sh-dagilim">{dag}. Kâğıtlar {secim.gruplar.slice(0, 3).map(g => gruplar[g].harf).join(', ')}{secim.gruplar.length > 3 ? '…' : ''} sırasıyla basılır; sırayla dağıtınca yan yana oturanlar farklı grup alır.</p>
               )}
             </>
@@ -322,7 +330,9 @@ function YazdirmaPenceresi({ sinav, gruplar, degistir, optikYapi, optikAnahtar, 
         {optikUygun ? (
           <>
             <Anahtar deger={secim.optik} onDegis={v => ayarla('optik', v)}
-              aciklama={secim.kopya === 'ogrenci' ? `${secim.ogrenci} optik form; her biri öğrencinin kâğıdının hemen arkasından` : 'Her kopyanın arkasına bir optik form'}>
+              aciklama={secim.kopya === 'ogrenci' ? `${secim.ogrenci} optik form; her biri öğrencinin kâğıdının hemen arkasından`
+                : secim.kopya === 'liste' ? `${listeSayisi} optik form; adı, soyadı ve numarası hazır işaretli, kâğıdının hemen arkasından`
+                  : 'Her kopyanın arkasına bir optik form'}>
               Her öğrenciye optik form
             </Anahtar>
             {secim.optik && G > 1 && (
@@ -352,6 +362,92 @@ function YazdirmaPenceresi({ sinav, gruplar, degistir, optikYapi, optikAnahtar, 
         <GrupOlcer key={gruplar[g].harf} sinav={sinav} grup={gruplar[g]} grupSayisi={G} onPlan={p => setPlanlar(x => ({ ...x, [g]: p }))} />
       ))}
     </Pencere>
+  )
+}
+
+// ------------------------------------------------------------------ sınıf listesi
+/**
+ * e-Okul / öğrenci bilgi sistemi listesi: Excel (.xlsx) ya da CSV yüklenir veya Excel'den kopyalanıp yapıştırılır.
+ * Liste sınavla birlikte bu cihazda saklanır (hiçbir sunucuya gitmez).
+ */
+function SinifListesiAlani({ liste, gruplar, secim, onDegis }) {
+  const dosyaRef = useRef(null)
+  const [yapistir, setYapistir] = useState(false)
+  const [metin, setMetin] = useState('')
+  const [hata, setHata] = useState(null)
+  const [mesgul, setMesgul] = useState(false)
+  const [uyariAcik, setUyariAcik] = useState(false)
+
+  function al(satirlar, kaynak) {
+    const r = tablodanOgrenciler(satirlar)
+    if (!r.ogrenciler.length) { setHata(r.uyarilar[0] || 'Listede öğrenci bulunamadı.'); return }
+    setHata(null); setYapistir(false); setMetin('')
+    onDegis({ kaynak, ogrenciler: r.ogrenciler.slice(0, MAKS_OGRENCI), uyarilar: r.uyarilar, tarih: Date.now() })
+  }
+  async function dosyaSec(f) {
+    setMesgul(true)
+    try { al(await dosyadanSatirlar(f), f.name) } catch (e) { setHata(e.message || String(e)) } finally { setMesgul(false) }
+  }
+
+  const kodlar = useMemo(() => (liste ? liste.ogrenciler.map(o => ogrenciKodu(o)) : []), [liste])
+  const uyarili = kodlar.map((k, i) => ({ i, k })).filter(x => x.k.uyarilar.length)
+  const grupHarfi = i => (gruplar.length > 1 ? gruplar[secim.gruplar[i % secim.gruplar.length]].harf : '')
+
+  if (!liste) {
+    return (
+      <div className="sh-liste-yukle">
+        <div className="sh-liste-yukle-dugmeler">
+          <button type="button" className="ikincil" disabled={mesgul} onClick={() => dosyaRef.current?.click()}>{mesgul ? <span className="donen kucuk" /> : <Simge ad="yukle" />}Excel / CSV yükle</button>
+          <button type="button" className="ikincil" onClick={() => setYapistir(v => !v)}><Simge ad="kopya" />Yapıştır</button>
+        </div>
+        <p className="sh-oz-not">e-Okul ya da öğrenci bilgi sisteminden aldığınız sınıf listesi. <b>Öğrenci No, Adı, Soyadı</b> (ya da <b>Adı Soyadı</b>) sütunları yeterli; liste bu cihazda kalır.</p>
+        {yapistir && (
+          <div className="sh-liste-yapistir">
+            <textarea rows={5} value={metin} onChange={e => setMetin(e.target.value)} placeholder={'Excel\'de sütunları seçip kopyalayın, buraya yapıştırın:\nÖğrenci No\tAdı\tSoyadı\n123\tAyşe\tYılmaz'} aria-label="Sınıf listesi" />
+            <button type="button" className="birincil kucuk" disabled={!metin.trim()} onClick={() => al(metniTabloyaCevir(metin), 'Yapıştırılan liste')}><Simge ad="onay" boyut={16} />Listeyi al</button>
+          </div>
+        )}
+        {hata && <div className="hata-kutu"><Simge ad="uyari" /><div>{hata}</div></div>}
+        <input ref={dosyaRef} type="file" accept=".xlsx,.xlsm,.csv,.txt,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden
+          onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) dosyaSec(f) }} />
+      </div>
+    )
+  }
+
+  return (
+    <div className="sh-liste-yuklu">
+      <div className="sh-liste-ozet">
+        <span className="sh-liste-simge"><Simge ad="kisiler" boyut={17} /></span>
+        <div><b>{liste.ogrenciler.length} öğrenci</b><small>{liste.kaynak}</small></div>
+        <button type="button" className="ikincil kucuk" onClick={() => onDegis(null)}>Değiştir</button>
+      </div>
+      <div className="sh-liste-tablo-kap">
+        <table className="sh-liste-tablo">
+          <thead><tr><th>No</th><th>Adı Soyadı</th>{gruplar.length > 1 && <th>Grup</th>}</tr></thead>
+          <tbody>
+            {liste.ogrenciler.slice(0, 5).map((o, i) => (
+              <tr key={i}><td>{o.no || '—'}</td><td>{[o.ad, o.soyad].filter(Boolean).join(' ')}</td>{gruplar.length > 1 && <td>{grupHarfi(i)}</td>}</tr>
+            ))}
+            {liste.ogrenciler.length > 5 && <tr className="devam"><td colSpan={3}>ve {liste.ogrenciler.length - 5} öğrenci daha</td></tr>}
+          </tbody>
+        </table>
+      </div>
+      {(liste.uyarilar || []).map((u, i) => <p key={i} className="sh-oz-not">{u}</p>)}
+      {uyarili.length > 0 && (
+        <div className="uyari-kutu sh-liste-uyari">
+          <Simge ad="uyari" />
+          <div>
+            <b>{uyarili.length} öğrencinin bilgisi forma tam sığmıyor.</b>{' '}
+            <button type="button" className="sh-bag-dugme" onClick={() => setUyariAcik(v => !v)}>{uyariAcik ? 'Gizle' : 'Göster'}</button>
+            {uyariAcik && (
+              <ul>
+                {uyarili.slice(0, 30).map(({ i, k }) => <li key={i}><b>{[liste.ogrenciler[i].ad, liste.ogrenciler[i].soyad].join(' ')}</b>: {k.uyarilar.join('; ')}</li>)}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
   )
 }
 

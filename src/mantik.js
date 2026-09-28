@@ -13,8 +13,61 @@ export const varsayilanAyar = () => ({
   ciftIsaret: 'yanlis',  // 'yanlis' | 'bos'
 })
 
-export function soruPuani(ayar) {
+/** İptal yokken soru başı puan (elle girilen ya da 100 / soru sayısı) */
+export function temelPuan(ayar) {
   return ayar.soruPuani > 0 ? ayar.soruPuani : 100 / ayar.soruSayisi
+}
+
+/**
+ * Soru başı puan. "Soruyu çıkar" ile iptal edilen soru varsa toplam puan korunur, çıkan sorunun puanı
+ * kalan sorulara eşit dağıtılır (100 puanlık 20 soruda bir soru çıkarsa kalan 19 soru 100 / 19 puan).
+ */
+export function soruPuani(ayar, cikan = cikarSayisi(ayar)) {
+  const t = temelPuan(ayar)
+  if (!cikan) return t
+  const kalan = ayar.soruSayisi - cikan
+  return kalan > 0 ? t * ayar.soruSayisi / kalan : 0
+}
+
+/** Alınabilecek en yüksek puan (iptallerden etkilenmez) */
+export const enYuksekPuan = ayar => temelPuan(ayar) * ayar.soruSayisi
+
+// ------------------------------------------------------------------
+// Soru iptali
+//   ayar.iptaller = [{ id, tur: 'dogru' | 'cikar', sorular: { A: 6, B: 11, ... } }]   (soru indeksleri 0'dan)
+//   'dogru': soru herkese doğru sayılır, cevabı ne olursa olsun.
+//   'cikar': soru hiç yokmuş gibi değerlendirilir; toplam puan korunur.
+//   Kitapçıklar karıştırılmışsa aynı soru her kitapçıkta farklı numaradadır; her kitapçığın numarası ayrı tutulur.
+// ------------------------------------------------------------------
+export const IPTAL_TURLERI = { dogru: 'Herkese doğru', cikar: 'Soru çıkarıldı' }
+
+/** Bir kitapçıkta iptal edilen sorular: { soruIndeksi: 'dogru' | 'cikar' } */
+export function iptalHaritasi(ayar, kitapcik) {
+  const m = {}
+  for (const ip of ayar.iptaller || []) {
+    const q = ip && ip.sorular ? ip.sorular[kitapcik] : undefined
+    if (Number.isInteger(q) && q >= 0 && q < ayar.soruSayisi && (ip.tur === 'dogru' || ip.tur === 'cikar')) m[q] = ip.tur
+  }
+  return m
+}
+
+/** Çıkarılan soru sayısı (her iptal her kitapçıkta bir soruya karşılık gelir) */
+export function cikarSayisi(ayar) {
+  const N = ayar.soruSayisi
+  return (ayar.iptaller || []).filter(ip => ip && ip.tur === 'cikar' && Object.values(ip.sorular || {}).some(q => Number.isInteger(q) && q >= 0 && q < N)).length
+}
+
+/** Yeni iptal geçerli mi? Geçerliyse null, değilse Türkçe hata metni. kitaplar: anahtarı olan kitapçıklar */
+export function iptalHatasi(ayar, kitaplar, ip) {
+  const N = ayar.soruSayisi
+  if (!ip || (ip.tur !== 'dogru' && ip.tur !== 'cikar')) return 'İptal türünü seçin.'
+  for (const k of kitaplar) {
+    const q = ip.sorular ? ip.sorular[k] : undefined
+    if (!Number.isInteger(q) || q < 0 || q >= N) return `${k} kitapçığındaki soru numarasını yazın (1–${N}).`
+    if (iptalHaritasi(ayar, k)[q] !== undefined) return `${k} kitapçığının ${q + 1}. sorusu zaten iptal edilmiş.`
+  }
+  if (ip.tur === 'cikar' && cikarSayisi(ayar) + 1 >= N) return 'En az bir soru değerlendirmede kalmalı.'
+  return null
 }
 
 export const yuvarla = (x, h = 2) => Math.round((x + Number.EPSILON) * 10 ** h) / 10 ** h
@@ -23,9 +76,12 @@ export const sayiTR = (x, h = 2) => yuvarla(x, h).toLocaleString('tr-TR', { mini
 /** Öğrenci cevabı: {t:'c', k} işaretli | {t:'b'} boş | {t:'x', ks:[...]} çift işaret */
 export function puanla(ogr, anahtar, ayar) {
   const N = ayar.soruSayisi
-  let d = 0, y = 0, b = 0
-  const detay = []
+  const iptal = ayar.iptaller && ayar.iptaller.length ? iptalHaritasi(ayar, ogr.kitapcik) : null
+  let d = 0, y = 0, b = 0, cikan = 0
+  const detay = []   // 'd' doğru | 'y' yanlış | 'b' boş | 'id' iptal: herkese doğru | 'i' iptal: çıkarıldı
   for (let q = 0; q < N; q++) {
+    if (iptal && iptal[q] === 'cikar') { cikan++; detay.push('i'); continue }
+    if (iptal && iptal[q] === 'dogru') { d++; detay.push('id'); continue }
     const c = ogr.cevaplar[q] || { t: 'b' }
     let durum
     if (c.t === 'c') durum = c.k === anahtar[q] ? 'd' : 'y'
@@ -36,7 +92,7 @@ export function puanla(ogr, anahtar, ayar) {
   }
   const g = Number(ayar.yanlisGoturur) || 0
   const net = g ? d - y / g : d
-  const puan = Math.max(0, net) * soruPuani(ayar)
+  const puan = Math.max(0, net) * soruPuani(ayar, cikan)
   return { d, y, b, net: yuvarla(net, 2), puan: yuvarla(puan, 2), detay }
 }
 

@@ -3,6 +3,7 @@ import Simge from '../bilesenler/Simge.jsx'
 import { sinavlariListele, sinavKaydet, sinavSil, profilGetir, profilKaydet, kalici } from './depo.js'
 import { yeniSinav, soruMu, toplamPuan, TURLER, GRUP_HARFLERI, puanMetni, grupSayisiSinirla } from './model.js'
 import { yedekOlustur, yedektenYukle, sinavKopyala, indirBlob, dosyaAdi } from './yedek.js'
+import { varsayilanLogolar } from './logo.js'
 import { Acilir, MenuOge, MenuAyrac, Pencere, Secici, GrupSecici, useBildirim, tarihMetni } from './arayuz.jsx'
 
 const SABLONLAR = [
@@ -170,6 +171,7 @@ export function YeniSinavPenceresi({ baslangicSablon = 'test', onKapat }) {
     setMesgul(true)
     try {
       const s = yeniSinav({ sablon, soruSayisi: soru, sikSayisi: sik, grupSayisi: grup, profil, baslik: { ...b } })
+      Object.assign(s.baslik, await varsayilanLogolar(s.id))    // okul logosu önceki sınavdan gelir
       await sinavKaydet(s)
       profilKaydet({ okul: b.okul, ders: b.ders, ogretmen: b.ogretmen, sikSayisi: sik, grupSayisi: grup })
       window.location.hash = `#/sinav/${s.id}`

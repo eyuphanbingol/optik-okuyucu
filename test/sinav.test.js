@@ -6,6 +6,8 @@ import { duzMetin, bosMu, ozet } from '../src/sinav/metin.js'
 import { optigeAktarilabilir, optikYapiUygun, optikDurumu, puanDurumu, optikAnahtarlari } from '../src/sinav/optikAktar.js'
 import { baskiListesi, baskiSecimiDuzelt, bloklar, dagilim } from '../src/sinav/baski.js'
 import { puanla } from '../src/mantik.js'
+import { adKodla, noKodla, ogrenciKodu, metniTabloyaCevir, tablodanOgrenciler, AD_SUTUN, SOYAD_SUTUN, NO_HANE, FORM_HARFLERI } from '../src/sinav/sinifListesi.js'
+import { readFileSync } from 'node:fs'
 
 let gecen = 0
 const t = (ad, f) => { f(); gecen++; console.log('  ✔', ad) }
@@ -262,6 +264,115 @@ t('optik anahtarları grupların kâğıttaki doğru şıklarıdır', () => {
   const s = testSinavi(15, 4)
   const a = optikAnahtarlari(s)
   tumGruplar(s).forEach(g => assert.deepEqual(a[g.harf], g.ogeler.map(o => o.dogruIndex)))
+})
+
+t('soru iptali için soru eşleşmesi: her kitapçıkta aynı soru kimlikleri, kâğıttaki sırayla', () => {
+  const s = testSinavi(20, 4)
+  const d = optikDurumu(s)
+  const g = tumGruplar(s)
+  assert.deepEqual(Object.keys(d.soruKimlikleri), ['A', 'B', 'C', 'D'])
+  g.forEach(gr => assert.deepEqual(d.soruKimlikleri[gr.harf], gr.ogeler.map(o => o.id)))
+  // A'nın 5. sorusu B'de kaçıncıysa, B'nin anahtarındaki o soru A'nın 5. sorusunun doğru şıkkıyla aynı metindir
+  for (let q = 0; q < 20; q++) {
+    const id = d.soruKimlikleri.A[q]
+    for (const k of ['B', 'C', 'D']) {
+      const qk = d.soruKimlikleri[k].indexOf(id)
+      assert.ok(qk >= 0)
+      const oA = g[0].ogeler[q], oK = g['ABCD'.indexOf(k)].ogeler[qk]
+      assert.equal(oA.siklarSirali[d.anahtarlar.A[q]].metin, oK.siklarSirali[d.anahtarlar[k][qk]].metin)
+      assert.equal(oA.siklarSirali[d.anahtarlar.A[q]].id, oA.dogru)
+    }
+  }
+})
+t('sınıf listesi: form ölçüleri optik okuyucunun geometri dosyasıyla aynı', () => {
+  const geo = JSON.parse(readFileSync(new URL('../src/omr/geometri.json', import.meta.url), 'utf8'))
+  assert.equal(FORM_HARFLERI, geo.harfler)
+  assert.equal(AD_SUTUN, geo.ad.merkez.length)
+  assert.equal(SOYAD_SUTUN, geo.soyad.merkez.length)
+  assert.equal(NO_HANE, geo.no.merkez.length)
+  geo.ad.merkez.forEach(sutun => assert.equal(sutun.length, FORM_HARFLERI.length))
+  geo.soyad.merkez.forEach(sutun => assert.equal(sutun.length, FORM_HARFLERI.length))
+  geo.no.merkez.forEach(sutun => assert.equal(sutun.length, 10))
+})
+t('sınıf listesi: ad kodlama (Türkçe harfler, iki ad, uzun ad, formda olmayan harf)', () => {
+  const h = ch => FORM_HARFLERI.indexOf(ch)
+  let a = adKodla('ayşe nur')
+  assert.equal(a.yazilan, 'AYŞE NUR')
+  assert.deepEqual(a.kod, [h('A'), h('Y'), h('Ş'), h('E'), null, h('N'), h('U'), h('R')])
+  assert.deepEqual(a.uyarilar, [])
+  assert.equal(adKodla('ismail').yazilan, 'İSMAİL')          // Türkçe büyük harf: i -> İ
+  assert.equal(adKodla('IŞIK').yazilan, 'IŞIK')
+  assert.equal(adKodla('çağrı ğöüş').yazilan, 'ÇAĞRI ĞÖÜŞ')
+  a = adKodla('Edward')
+  assert.equal(a.yazilan, 'EDVARD'); assert.equal(a.uyarilar.length, 1)
+  assert.equal(adKodla('Alexander').yazilan, 'ALEKSANDER')
+  assert.equal(adKodla('Âlim').yazilan, 'ALİM')
+  a = adKodla('Muhammed Mustafa Enes')
+  assert.equal(a.kod.length, 13); assert.equal(a.yazilan, 'MUHAMMED MUST'); assert.ok(a.uyarilar.some(u => u.includes('uzun')))
+  a = adKodla('Mehmet Ali  ')                      // 13. sütunda boşluk kalmaz
+  assert.equal(a.yazilan, 'MEHMET ALİ')
+  a = adKodla('Abdurrahmanxx')                     // X -> KS ile 13'ü aşarsa kesilir
+  assert.equal(a.kod.length, 13)
+  assert.equal(adKodla("Can-Ali O'Neil").yazilan, 'CAN ALİ ONEİL')
+  assert.deepEqual(adKodla('').kod, [])
+  assert.ok(adKodla('Ahmet 2').uyarilar.length === 1)   // rakam yazılmaz
+  // kod her zaman form harfi ya da boş
+  for (const ad of ['Zeynep Gül', 'Ömer Faruk', 'Ğ Ü Ş İ Ö Ç', 'Wİlliam Quincy']) adKodla(ad).kod.forEach(k => assert.ok(k === null || (k >= 0 && k < 29)))
+})
+t('sınıf listesi: numara kodlama (en çok 9 hane, uydurma numara yok)', () => {
+  assert.deepEqual(noKodla('1234').haneler, [1, 2, 3, 4])
+  assert.deepEqual(noKodla(' 00 7 ').haneler, [0, 0, 7])
+  assert.deepEqual(noKodla(123456789).haneler, [1, 2, 3, 4, 5, 6, 7, 8, 9])
+  assert.equal(noKodla('1234567890').haneler, null); assert.ok(noKodla('1234567890').uyari)
+  assert.equal(noKodla('12A').haneler, null); assert.ok(noKodla('12A').uyari)
+  assert.equal(noKodla('').haneler, null); assert.equal(noKodla('').uyari, null)
+  const k = ogrenciKodu({ ad: 'Ayşe Nur', soyad: 'Yılmaz', no: '1234567890' })
+  assert.equal(k.noHane, null); assert.equal(k.no, ''); assert.equal(k.uyarilar.length, 1)
+})
+t('sınıf listesi: e-Okul / üniversite listesi, yapıştırılan metin, başlıksız liste', () => {
+  // e-Okul benzeri: üstte okul bilgisi, sonra başlık satırı
+  let r = tablodanOgrenciler([
+    ['T.C. MİLLÎ EĞİTİM BAKANLIĞI'], ['9/A Sınıf Listesi'], [],
+    ['S.No', 'Öğrenci No', 'Adı', 'Soyadı', 'Cinsiyeti'],
+    ['1', '123', 'ayşe nur', 'yılmaz', 'Kız'],
+    ['2', '45', 'İSMAİL', 'ÇELİK', 'Erkek'],
+    ['', '', '', '', ''],
+  ])
+  assert.equal(r.baslikSatiri, 3)
+  assert.deepEqual(r.ogrenciler, [{ no: '123', ad: 'AYŞE NUR', soyad: 'YILMAZ', sinif: '' }, { no: '45', ad: 'İSMAİL', soyad: 'ÇELİK', sinif: '' }])
+  // "Adı Soyadı" tek sütun: son kelime soyad
+  r = tablodanOgrenciler([['Numara', 'Adı Soyadı', 'Sınıfı'], ['7', 'Mehmet Ali Kaya', '10-B'], ['8', 'Ece Su Ak', '10-B']])
+  assert.deepEqual(r.ogrenciler[0], { no: '7', ad: 'MEHMET ALİ', soyad: 'KAYA', sinif: '10-B' })
+  assert.equal(r.ogrenciler[1].ad, 'ECE SU')
+  // üniversite: Student ID / Name / Surname, Excel'in 2021001.0 gibi yazdığı numara
+  r = tablodanOgrenciler([['Student ID', 'Name', 'Surname'], ['2021001.0', 'Deniz', 'Öztürk']])
+  assert.deepEqual(r.ogrenciler[0], { no: '2021001', ad: 'DENİZ', soyad: 'ÖZTÜRK', sinif: '' })
+  // yapıştırılan (sekmeyle ayrılmış) metin
+  r = tablodanOgrenciler(metniTabloyaCevir('No\tAdı\tSoyadı\r\n12\tZeynep\tKara\n13\tCan\tDemir\n'))
+  assert.equal(r.ogrenciler.length, 2); assert.equal(r.ogrenciler[1].soyad, 'DEMİR')
+  // noktalı virgüllü Türkçe CSV, tırnaklı hücre
+  assert.deepEqual(metniTabloyaCevir('No;Adı;Soyadı\n1;"Ali; Veli";Can'), [['No', 'Adı', 'Soyadı'], ['1', 'Ali; Veli', 'Can']])
+  // başlıksız: sıra no sütunu atlanır, rakamlı sütun numara, ilk iki yazı sütunu ad / soyad
+  r = tablodanOgrenciler([['1', '501', 'Ali', 'Can'], ['2', '502', 'Ece', 'Su'], ['3', '503', 'Efe', 'Ay']])
+  assert.deepEqual(r.ogrenciler[2], { no: '503', ad: 'EFE', soyad: 'AY', sinif: '' })
+  assert.ok(r.uyarilar.some(u => u.includes('Başlık')))
+  // aynı numara uyarısı
+  r = tablodanOgrenciler([['No', 'Ad', 'Soyad'], ['5', 'A', 'B'], ['5', 'C', 'D']])
+  assert.ok(r.uyarilar.some(u => u.includes('Aynı numara')))
+  // "Soyadı" başlığı ad soyad sanılmaz
+  r = tablodanOgrenciler([['Soyadı', 'Adı', 'No'], ['Kaya', 'Ali', '9']])
+  assert.deepEqual(r.ogrenciler[0], { no: '9', ad: 'ALİ', soyad: 'KAYA', sinif: '' })
+  assert.equal(tablodanOgrenciler([['1', '2'], ['3', '4']]).ogrenciler.length, 0)
+})
+t('sınıf listesinden yazdırma: listedeki her öğrenciye sırayla grup, kâğıt ve optik form', () => {
+  const sec = baskiSecimiDuzelt({ kopya: 'liste', gruplar: [0, 1, 2], optik: true, ogrenci: 3 }, 4)
+  assert.equal(sec.kopya, 'liste')
+  assert.deepEqual(dagilim(sec, 7), [0, 1, 2, 0, 1, 2, 0])
+  const l = baskiListesi(sec, () => 2, { listeSayisi: 5 })
+  assert.equal(l.filter(x => x.tur === 'optik').length, 5)
+  assert.deepEqual(l.filter(x => x.tur === 'optik').map(x => x.kisi), [0, 1, 2, 3, 4])
+  assert.equal(l.filter(x => x.tur === 'kagit').length, 10)
+  assert.equal(baskiListesi(sec, () => 2, { listeSayisi: 0 }).length, 0)
 })
 
 console.log(`\n${gecen} test geçti`)

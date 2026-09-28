@@ -784,7 +784,24 @@ input.sh-ust-baslik:focus { border-color: var(--ana); box-shadow: 0 0 0 3px var(
 .sh-b-bilgi input { width: 8.5em; text-transform: none !important; font-weight: 450 !important; text-align: left !important; border-bottom: 1px dotted #bbb !important; border-radius: 0 !important; }
 .sh-b-yonerge { margin-top: 8px; text-align: left; font-size: 0.92em; color: var(--yazi-2); font-style: italic; }
 .sh-b-yonerge:empty::before { font-style: italic; }
-.sh-b-grup { position: absolute; top: 8px; right: 6px; display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid #111; border-radius: 8px; font-weight: 800; font-size: 1.25em; }
+.sh-b-grup { display: grid; place-items: center; width: 34px; height: 34px; border: 2px solid #111; border-radius: 8px; font-weight: 800; font-size: 1.25em; }
+.sh-b-ust { display: grid; grid-template-columns: 62px minmax(0, 1fr) 62px; align-items: center; gap: 10px; }
+.sh-b-ust.gruplu { grid-template-columns: 62px minmax(0, 1fr) 62px 36px; }
+.sh-b-orta-blok { min-width: 0; }
+
+/* logo yeri */
+.sh-logo-yeri { position: relative; display: grid; place-items: center; width: 62px; height: 58px; }
+.sh-logo-yeri img { display: block; max-width: 62px; max-height: 58px; object-fit: contain; }
+.sh-logo-yeri .sh-gorsel-yer { width: 56px; height: 48px; border-radius: 6px; background: #eef1f4; }
+.sh-logo-ekle { display: grid; place-items: center; align-content: center; gap: 2px; width: 100%; height: 100%; border: 1.5px dashed #d3d9df; border-radius: 10px; background: transparent; color: #98a2ad; font: 600 11px var(--font); cursor: pointer; opacity: 0.6; transition: opacity var(--gecis), border-color var(--gecis), color var(--gecis), background var(--gecis); }
+.sh-kagit-baslik:hover .sh-logo-ekle, .sh-logo-ekle:focus-visible { opacity: 1; }
+.sh-logo-ekle:hover { border-color: var(--ana); color: var(--ana); background: var(--ana-acik); }
+.sh-logo-arac { position: absolute; right: -8px; bottom: -8px; display: flex; gap: 2px; padding: 2px; border-radius: 9px; background: #fff; border: 1px solid #e3e7ec; box-shadow: 0 4px 12px -6px rgba(15, 23, 42, 0.35); opacity: 0; transition: opacity var(--gecis); }
+.sh-logo-yeri:hover .sh-logo-arac, .sh-logo-arac:focus-within { opacity: 1; }
+.sh-logo-arac button { display: grid; place-items: center; width: 26px; height: 26px; border: 0; border-radius: 7px; background: transparent; color: #3b4652; cursor: pointer; }
+.sh-logo-arac button:hover { background: #f1f4f7; }
+.sh-logo-arac button.tehlike { color: var(--kirmizi); }
+@media (hover: none) { .sh-logo-ekle { opacity: 1; } .sh-logo-arac { opacity: 1; } }
 
 /* düzenlenebilir alanlar */
 .sh-duz {
@@ -1139,6 +1156,9 @@ input.sh-ust-baslik:focus { border-color: var(--ana); box-shadow: 0 0 0 3px var(
 .bs-yil { font-weight: 600; font-size: 0.92em; }
 .bs-sinav-adi { font-weight: 700; font-size: 1em; margin-top: 0.3mm; }
 .bs-grup-kutu { width: 18mm; text-align: center; vertical-align: middle; }
+.bs-logo { width: 22mm; padding: 1.2mm !important; text-align: center; vertical-align: middle; }
+.bs-logo img { display: block; max-width: 19.5mm; max-height: 17mm; margin: 0 auto; object-fit: contain; }
+.bs-logo .bs-gorsel-yer { width: 18mm; height: 15mm; aspect-ratio: auto; margin: 0 auto; }
 .bs-grup-kutu b { display: block; font-size: 2em; line-height: 1; font-weight: 800; }
 .bs-grup-kutu small { display: block; font-size: 0.62em; font-weight: 700; letter-spacing: 0.08em; }
 
@@ -1147,6 +1167,8 @@ input.sh-ust-baslik:focus { border-color: var(--ana); box-shadow: 0 0 0 3px var(
 .bs-ogrenci th { width: 1%; white-space: nowrap; font-weight: 700; background: #f2f2f2; }
 .bs-ogrenci td.uzun { width: 32%; }
 .bs-ogrenci td.kisa { width: 12%; }
+.bs-ogrenci td.bs-dolu { white-space: nowrap; font-weight: 600; }
+.bs-ogrenci td.uzun.bs-dolu { max-width: 58mm; overflow: hidden; }
 .bs-puan-kutu { width: 20mm; text-align: center !important; vertical-align: top; padding-top: 1mm !important; }
 .bs-puan-kutu span { font-weight: 700; font-size: 0.85em; }
 
@@ -1266,6 +1288,29 @@ input.sh-ust-baslik:focus { border-color: var(--ana); box-shadow: 0 0 0 3px var(
 .sh-yazdir-alt .dugmeler { margin: 0; }
 .sh-puan-esitle { display: grid; gap: 12px; }
 .sh-puan-esitle .uyari-kutu { margin: 0; }
+
+/* sınıf listesi */
+.sh-liste-yukle, .sh-liste-yuklu { display: grid; gap: 8px; padding: 12px; border-radius: 14px; background: var(--yuzey-2); border: 1px dashed var(--cizgi-2); }
+.sh-liste-yuklu { border-style: solid; }
+.sh-liste-yukle-dugmeler { display: flex; flex-wrap: wrap; gap: 8px; }
+.sh-liste-yukle .sh-oz-not { margin: 0; }
+.sh-liste-yapistir { display: grid; gap: 8px; }
+.sh-liste-yapistir textarea { width: 100%; min-height: 96px; resize: vertical; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--cizgi-2); background: var(--yuzey); font: 13px/1.45 var(--mono); color: var(--yazi); }
+.sh-liste-yapistir .birincil { justify-self: start; }
+.sh-liste-ozet { display: flex; align-items: center; gap: 10px; }
+.sh-liste-ozet > div { flex: 1; min-width: 0; display: grid; }
+.sh-liste-ozet b { font-size: 14.5px; }
+.sh-liste-ozet small { font-size: 12px; color: var(--soluk); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sh-liste-simge { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--ana-acik); color: var(--ana); flex: none; }
+.sh-liste-tablo-kap { overflow-x: auto; border-radius: 10px; border: 1px solid var(--cizgi); background: var(--yuzey); }
+.sh-liste-tablo { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.sh-liste-tablo th, .sh-liste-tablo td { padding: 6px 10px; text-align: left; border-bottom: 1px solid var(--cizgi); white-space: nowrap; }
+.sh-liste-tablo th { font-size: 11.5px; font-weight: 650; letter-spacing: 0.04em; text-transform: uppercase; color: var(--soluk); background: var(--yuzey-2); }
+.sh-liste-tablo tr:last-child td { border-bottom: 0; }
+.sh-liste-tablo tr.devam td { color: var(--soluk); font-style: italic; }
+.sh-liste-uyari { margin: 0; font-size: 13px; }
+.sh-liste-uyari ul { margin: 6px 0 0; padding-left: 18px; display: grid; gap: 3px; }
+.sh-bag-dugme { border: 0; background: none; padding: 0; color: var(--ana); font: inherit; font-weight: 650; text-decoration: underline; cursor: pointer; }
 
 /* optik form sayfası (baskı) */
 .bs-sayfa.bs-optik-sayfa { display: block; padding: 0; }

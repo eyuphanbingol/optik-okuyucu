@@ -1,9 +1,10 @@
-import { SIKLAR, puanla, adSoyad, soruPuani, yuvarla, baslikBicim } from './mantik.js'
+import { SIKLAR, puanla, adSoyad, soruPuani, yuvarla, baslikBicim, iptalHaritasi, IPTAL_TURLERI } from './mantik.js'
 
 const MAVI = 'FF1F4E78'
 const YESIL = 'FFC6EFCE'
 const KIRMIZI = 'FFFFC7CE'
 const GRI = 'FFEDEDED'
+const IPTAL = 'FFDDEBF7'   // iptal edilen soru (mavi)
 
 function baslikSatiri(ws) {
   const r = ws.getRow(1)
@@ -98,7 +99,8 @@ export async function excelOlustur(sinav) {
       for (let q = 0; q < N; q++) {
         const cell = r.getCell(5 + q)
         cell.alignment = { horizontal: 'center' }
-        dolgu(cell, p.detay[q] === 'd' ? YESIL : p.detay[q] === 'y' ? KIRMIZI : GRI)
+        const du = p.detay[q]
+        dolgu(cell, du === 'd' ? YESIL : du === 'y' ? KIRMIZI : du === 'i' || du === 'id' ? IPTAL : GRI)
       }
     }
   }
@@ -111,26 +113,30 @@ export async function excelOlustur(sinav) {
     { header: 'Doğru cevap', key: 'dc', width: 12 }, { header: 'Doğru %', key: 'd', width: 10 },
     { header: 'Yanlış %', key: 'y', width: 10 }, { header: 'Boş %', key: 'b', width: 10 },
     { header: 'En çok seçilen yanlış şık', key: 'en', width: 26 }, { header: 'Öğrenci sayısı', key: 'n', width: 14 },
+    { header: 'İptal', key: 'ip', width: 16 },
   ]
   for (const [kit, anahtar] of Object.entries(anahtarlar)) {
     const grup = satirlar.filter(s => s.p && s.o.kitapcik === kit)
     const n = grup.length
+    const iptal = iptalHaritasi(ayar, kit)
     for (let q = 0; q < N; q++) {
       let d = 0, y = 0, b = 0
       const yanlis = {}
       for (const s of grup) {
-        const du = s.p.detay[q]
+        // iptal edilen soruda da öğrencilerin gerçek cevapları gösterilir (sorunun neden hatalı olduğu görülsün)
+        const c = s.o.cevaplar[q] || { t: 'b' }
+        const du = c.t === 'c' ? (c.k === anahtar[q] ? 'd' : 'y') : c.t === 'x' ? (ayar.ciftIsaret === 'bos' ? 'b' : 'y') : 'b'
         if (du === 'd') d++; else if (du === 'y') y++; else b++
-        const c = s.o.cevaplar[q]
         if (c.t === 'c' && c.k !== anahtar[q]) yanlis[SIKLAR[c.k]] = (yanlis[SIKLAR[c.k]] || 0) + 1
       }
       const en = Object.entries(yanlis).sort((a, b2) => b2[1] - a[1])[0]
       const r = wa.addRow({
         k: kit, q: q + 1, dc: SIKLAR[anahtar[q]],
         d: n ? yuvarla(100 * d / n, 1) : '', y: n ? yuvarla(100 * y / n, 1) : '', b: n ? yuvarla(100 * b / n, 1) : '',
-        en: en ? `${en[0]} (${en[1]} kişi)` : '-', n,
+        en: en ? `${en[0]} (${en[1]} kişi)` : '-', n, ip: iptal[q] ? IPTAL_TURLERI[iptal[q]] : '',
       })
       if (n) dolgu(r.getCell('d'), d / n < 0.4 ? KIRMIZI : d / n >= 0.8 ? YESIL : 'FFFFFFFF')
+      if (iptal[q]) dolgu(r.getCell('ip'), IPTAL)
     }
   }
   baslikSatiri(wa)
@@ -141,9 +147,16 @@ export async function excelOlustur(sinav) {
   for (const [kit, anahtar] of Object.entries(anahtarlar)) {
     const d = { k: kit }
     for (let q = 0; q < N; q++) d['q' + q] = SIKLAR[anahtar[q]]
-    wk.addRow(d)
+    const r = wk.addRow(d)
+    const iptal = iptalHaritasi(ayar, kit)
+    for (const q of Object.keys(iptal)) dolgu(r.getCell(2 + Number(q)), IPTAL)
   }
   baslikSatiri(wk)
+  if ((ayar.iptaller || []).length) {
+    wk.addRow([])
+    const r = wk.addRow(['Mavi: iptal edilen soru'])
+    dolgu(r.getCell(1), IPTAL)
+  }
 
   // ---------------- Bilgi
   const wi = wb.addWorksheet('Bilgi')
@@ -156,6 +169,9 @@ export async function excelOlustur(sinav) {
     ['Soru başı puan', yuvarla(soruPuani(ayar), 4)],
     ['Yanlış doğruyu götürür', ayar.yanlisGoturur ? `${ayar.yanlisGoturur} yanlış 1 doğru` : 'Hayır'],
     ['Çift işaretli soru', ayar.ciftIsaret === 'bos' ? 'Boş sayılır' : 'Yanlış sayılır'],
+    ['İptal edilen sorular', (ayar.iptaller || []).length
+      ? ayar.iptaller.map(ip => `${Object.entries(ip.sorular || {}).sort().map(([k, q]) => (Object.keys(anahtarlar).length > 1 ? `${k}${q + 1}` : `${q + 1}. soru`)).join('/')} (${IPTAL_TURLERI[ip.tur]})`).join(', ')
+      : 'Yok'],
     ['Öğrenci sayısı', ogrenciler.length],
     ['Ortalama puan', yuvarla(ort, 2)],
     ['En yüksek puan', puanlar.length ? Math.max(...puanlar) : '-'],

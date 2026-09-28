@@ -52,6 +52,8 @@ export function varsayilanBaslik(profil = {}) {
     sure: '',
     ogretmen: profil.ogretmen || '',
     yonerge: '',
+    logoSol: null,          // { id } — okul / kurum logosu (başlığın solunda)
+    logoSag: null,          // { id } — ikinci logo (örn. MEB / üniversite), başlığın sağında
   }
 }
 
@@ -194,6 +196,7 @@ export function ogeKopyala(o) {
 /** Kullanılan tüm görsel kimlikleri */
 export function gorselKimlikleri(sinav) {
   const s = new Set()
+  for (const t of ['logoSol', 'logoSag']) if (sinav.baslik && sinav.baslik[t] && sinav.baslik[t].id) s.add(sinav.baslik[t].id)
   for (const o of sinav.ogeler) {
     if (o.gorsel && o.gorsel.id) s.add(o.gorsel.id)
     if (o.siklar) for (const k of o.siklar) if (k.gorsel && k.gorsel.id) s.add(k.gorsel.id)

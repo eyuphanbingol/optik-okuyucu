@@ -10,6 +10,7 @@ import { basariSesi, uyariSesi, sesiAc } from './ses.js'
 import {
   varsayilanAyar, soruPuani, puanla, sayiTR, adSoyad, sorunlariBul, kitapcikSec,
   kayitOlustur, tekrarKontrol, anahtarTaslagi, SIKLAR,
+  enYuksekPuan as azamiPuan, iptalHatasi, IPTAL_TURLERI,
 } from './mantik.js'
 
 const anahtarTamam = s => Object.keys(s.anahtarlar).length > 0 &&
@@ -167,7 +168,7 @@ function AyarEkrani({ sinav, setSinav, git, devamSor }) {
       </div>
       <p className="alan-ipucu">
         <span>Puan boş bırakılırsa toplam 100 olacak şekilde hesaplanır.</span>
-        <span className="toplam-rozet">Toplam: <b>{gecerli ? sayiTR(soruPuani(a) * N) : '-'}</b></span>
+        <span className="toplam-rozet">Toplam: <b>{gecerli ? sayiTR(azamiPuan(a)) : '-'}</b></span>
       </p>
       <div className="alan-izgara">
         <label className="alan"><span className="alan-ad">Yanlışlar doğruyu götürsün mü?</span>
@@ -304,7 +305,7 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
   const bildir = (tur, metin, ek = {}) => { setBildirim({ tur, metin, zaman: Date.now(), ...ek }); (tur === 'tamam' ? basariSesi : uyariSesi)() }
 
   const puanli = useMemo(() => ogrenciler.map((o, i) => ({ o, i, p: anahtarlar[o.kitapcik] ? puanla(o, anahtarlar[o.kitapcik], ayar) : null })), [ogrenciler, anahtarlar, ayar])
-  const enYuksekPuan = soruPuani(ayar) * N
+  const enYuksekPuan = azamiPuan(ayar)
 
   function kaydetKayit(kayit, cakisma = null) {
     const s = sinavRef.current
@@ -351,6 +352,7 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
           <div className="cipler">
             <span className="cip">{N} soru</span>
             <span className="cip">soru başı {sayiTR(soruPuani(ayar))} puan</span>
+            {ayar.iptaller?.length > 0 && <span className="cip iptal-cip">{ayar.iptaller.length} soru iptal</span>}
             {Number(ayar.yanlisGoturur) > 0 && <span className="cip">{ayar.yanlisGoturur} yanlış 1 doğru</span>}
             <span className="cip">{Object.keys(anahtarlar).sort().join(', ')} kitapçık</span>
           </div>
@@ -542,10 +544,11 @@ function OgrenciDetay({ o, sira, ayar, anahtarlar, onKapat, onGuncelle, onSil })
               const c = o.cevaplar[q]
               const d = p ? p.detay[q] : 'b'
               return (
-                <div key={q} className={'cevap-hucre ' + d}>
+                <div key={q} className={'cevap-hucre ' + d} title={d === 'id' ? 'İptal: herkese doğru' : d === 'i' ? 'İptal: soru çıkarıldı' : undefined}>
                   <small>{q + 1}</small>
                   <b>{c.t === 'c' ? SIKLAR[c.k] : c.t === 'x' ? c.ks.map(k => SIKLAR[k]).join('') : '–'}</b>
-                  {a && d !== 'd' && <small className="dogrusu">{SIKLAR[a[q]]}</small>}
+                  {a && (d === 'y' || d === 'b') && <small className="dogrusu">{SIKLAR[a[q]]}</small>}
+                  {(d === 'i' || d === 'id') && <small className="iptal-etiket">iptal</small>}
                 </div>
               )
             })}
@@ -587,6 +590,115 @@ function Dagilim({ puanlar, enYuksek }) {
   )
 }
 
+/**
+ * Soru iptali: hatalı soru herkese doğru sayılır ya da değerlendirmeden çıkarılır; tüm puanlar hemen yeniden hesaplanır.
+ * Kitapçıklar karıştırılmışsa aynı soru her kitapçıkta farklı numaradadır: sınav "Sınav hazırla"dan aktarıldıysa
+ * diğer kitapçıklardaki numaralar otomatik bulunur, değilse öğretmen her kitapçık için numarayı yazar.
+ */
+function SoruIptali({ sinav, setSinav }) {
+  const { ayar, anahtarlar } = sinav
+  const N = ayar.soruSayisi
+  const kitaplar = Object.keys(anahtarlar).sort()
+  // Sınav hazırla'dan aktarılmışsa aynı sorunun her kitapçıktaki yeri bilinir (soru sayısı sonradan değiştiyse kullanılmaz)
+  const eslesme = sinav.soruKimlikleri && kitaplar.length > 1 && kitaplar.every(k => Array.isArray(sinav.soruKimlikleri[k])
+    && sinav.soruKimlikleri[k].length === N && new Set(sinav.soruKimlikleri[k]).size === N
+    && sinav.soruKimlikleri[k].every(id => sinav.soruKimlikleri[kitaplar[0]].includes(id))) ? sinav.soruKimlikleri : null
+  const [ac, setAc] = useState(false)
+  const [kit, setKit] = useState(kitaplar[0] || 'A')
+  const [tur, setTur] = useState('dogru')
+  const [numara, setNumara] = useState({})   // kitapçık -> yazılan numara (1'den)
+  const [hata, setHata] = useState(null)
+  const iptaller = ayar.iptaller || []
+  const anaQ = parseInt(numara[kit], 10) - 1
+
+  // eşleşme varsa diğer kitapçıklardaki karşılıklar otomatik
+  const sorular = {}
+  for (const k of kitaplar) {
+    if (eslesme && Number.isInteger(anaQ) && anaQ >= 0 && anaQ < N) sorular[k] = eslesme[k].indexOf(eslesme[kit][anaQ])
+    else { const v = parseInt(numara[k], 10); sorular[k] = Number.isNaN(v) ? undefined : v - 1 }
+  }
+  const karsilik = kitaplar.filter(k => k !== kit)
+
+  function iptalEt() {
+    const ip = { id: Math.random().toString(36).slice(2, 10), tur, sorular }
+    const h = iptalHatasi(ayar, kitaplar, ip)
+    if (h) { setHata(h); return }
+    setSinav(s => ({ ...s, ayar: { ...s.ayar, iptaller: [...(s.ayar.iptaller || []), ip] } }))
+    setNumara({}); setHata(null); setAc(false)
+  }
+  const geriAl = id => setSinav(s => ({ ...s, ayar: { ...s.ayar, iptaller: (s.ayar.iptaller || []).filter(x => x.id !== id) } }))
+  const etiket = ip => kitaplar.map(k => (kitaplar.length > 1 ? `${k}${(ip.sorular[k] ?? -1) + 1}` : `${(ip.sorular[k] ?? -1) + 1}. soru`)).join(' · ')
+
+  if (!kitaplar.length) return null
+  return (
+    <div className="aktar-kart iptal-kart">
+      <div className="iptal-ust">
+        <div>
+          <div className="aktar-baslik">Soru iptali</div>
+          <p className="kucuk-not">Hatalı bir soru varsa iptal edin; tüm puanlar ve Excel hemen yeniden hesaplanır.</p>
+        </div>
+        {!ac && <button type="button" className="kucuk-dugme" onClick={() => setAc(true)}><Simge ad="arti" boyut={15} />Soru iptal et</button>}
+      </div>
+
+      {iptaller.length > 0 && (
+        <ul className="iptal-listesi">
+          {iptaller.map(ip => (
+            <li key={ip.id}>
+              <span className={'iptal-tur ' + ip.tur}>{IPTAL_TURLERI[ip.tur]}</span>
+              <b>{etiket(ip)}</b>
+              <button type="button" className="kucuk-dugme" onClick={() => geriAl(ip.id)} aria-label="İptali geri al"><Simge ad="geri" boyut={14} />Geri al</button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {ac && (
+        <div className="iptal-form">
+          <div className="iptal-satir">
+            {kitaplar.length > 1 && (
+              <label className="iptal-alan"><span>Kitapçık</span>
+                <select value={kit} onChange={e => { setKit(e.target.value); setHata(null) }}>
+                  {kitaplar.map(k => <option key={k} value={k}>{k}</option>)}
+                </select>
+              </label>
+            )}
+            <label className="iptal-alan"><span>Soru no</span>
+              <input type="number" min="1" max={N} inputMode="numeric" value={numara[kit] ?? ''} placeholder={`1–${N}`}
+                onChange={e => { setNumara(n => ({ ...n, [kit]: e.target.value })); setHata(null) }} />
+            </label>
+          </div>
+          {karsilik.length > 0 && (eslesme ? (
+            Number.isInteger(anaQ) && anaQ >= 0 && anaQ < N && (
+              <p className="kucuk-not">Aynı soru diğer kitapçıklarda: {karsilik.map(k => `${k} kitapçığında ${sorular[k] + 1}.`).join(', ')} <i>(Sınav hazırla'dan)</i></p>
+            )
+          ) : (
+            <div className="iptal-satir">
+              {karsilik.map(k => (
+                <label key={k} className="iptal-alan"><span>{k} kitapçığında</span>
+                  <input type="number" min="1" max={N} inputMode="numeric" value={numara[k] ?? ''} placeholder="no"
+                    onChange={e => { setNumara(n => ({ ...n, [k]: e.target.value })); setHata(null) }} />
+                </label>
+              ))}
+            </div>
+          ))}
+          <div className="secenekler iptal-turler" role="radiogroup" aria-label="İptal türü">
+            <button type="button" role="radio" aria-checked={tur === 'dogru'} className={'sec genis-sec' + (tur === 'dogru' ? ' secili' : '')} onClick={() => setTur('dogru')}>Herkese doğru say</button>
+            <button type="button" role="radio" aria-checked={tur === 'cikar'} className={'sec genis-sec' + (tur === 'cikar' ? ' secili' : '')} onClick={() => setTur('cikar')}>Soruyu çıkar</button>
+          </div>
+          <p className="kucuk-not">{tur === 'dogru'
+            ? 'Cevabı ne olursa olsun herkes bu sorunun puanını alır.'
+            : `Soru hiç yokmuş gibi değerlendirilir; puanı kalan sorulara dağıtılır, toplam ${sayiTR(azamiPuan(ayar))} puan değişmez.`}</p>
+          {hata && <div className="hata-kutu"><Simge ad="uyari" /><span>{hata}</span></div>}
+          <div className="dugmeler sol">
+            <button type="button" className="birincil" onClick={iptalEt}><Simge ad="onay" />İptal et</button>
+            <button type="button" className="ikincil" onClick={() => { setAc(false); setHata(null) }}>Vazgeç</button>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SonucEkrani({ sinav, setSinav, git }) {
   const { ayar, anahtarlar, ogrenciler } = sinav
   const [durum, setDurum] = useState(null) // {tur, metin}
@@ -596,7 +708,7 @@ function SonucEkrani({ sinav, setSinav, git }) {
   const puanlar = puanli.filter(x => x.p).map(x => x.p.puan)
   const ort = puanlar.length ? puanlar.reduce((a, b) => a + b, 0) / puanlar.length : 0
   const gorunen = [...puanli].sort((a, b) => sirala === 'puan' ? (b.p?.puan ?? -1) - (a.p?.puan ?? -1) : sirala === 'isim' ? adSoyad(a.o).localeCompare(adSoyad(b.o), 'tr') : a.i - b.i)
-  const enYuksekPuan = soruPuani(ayar) * ayar.soruSayisi
+  const enYuksekPuan = azamiPuan(ayar)
 
   // Excel modülünü ekran açılır açılmaz arka planda hazırla: düğmeye basınca beklemeden oluşsun
   useEffect(() => { import('./excel.js').catch(() => {}) }, [])
@@ -636,6 +748,8 @@ function SonucEkrani({ sinav, setSinav, git }) {
         <div><span>{puanlar.length ? sayiTR(Math.min(...puanlar)) : '-'}</span>en düşük</div>
       </div>
       {puanlar.length > 0 && <Dagilim puanlar={puanlar} enYuksek={enYuksekPuan} />}
+
+      <SoruIptali sinav={sinav} setSinav={setSinav} />
 
       <div className="aktar-kart">
         <div className="aktar-baslik">Sonuçları al</div>

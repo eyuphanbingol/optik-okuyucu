@@ -6,7 +6,8 @@ import Ozellikler from './Ozellikler.jsx'
 import { Acilir, MenuOge, MenuAyrac, useBildirim, Pencere } from './arayuz.jsx'
 import { yeniOge, numaralar, soruSayisi, toplamPuan, turDegistir, ogeKopyala, TURLER, yeniId, puanMetni } from './model.js'
 import { ozet, SEMBOLLER } from './metin.js'
-import { gorselEkle } from './gorsel.js'
+import { gorselEkle, useGorsel } from './gorsel.js'
+import { logoEkle, logoVarsayilaniKaldir } from './logo.js'
 import { sinavSil } from './depo.js'
 import { yedekOlustur, sinavKopyala, indirBlob, dosyaAdi } from './yedek.js'
 
@@ -182,6 +183,9 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
         <main className="sh-tuval" onMouseDown={e => { if (e.target === e.currentTarget) setSecili(null) }}>
           <div className="sh-kagit" onMouseDown={e => { if (e.target === e.currentTarget) setSecili(null) }}>
             <div className={'sh-kagit-baslik' + (secili === '__baslik' ? ' secili' : '')} onMouseDown={() => setSecili(null)} id="oge-__baslik">
+              <div className={'sh-b-ust' + (sinav.ayar.grupSayisi > 1 ? ' gruplu' : '')}>
+              <LogoYeri logo={b.logoSol} taraf="logoSol" sinavId={sinav.id} degistir={degistir} bildir={bildir} />
+              <div className="sh-b-orta-blok">
               <input className="sh-b-okul" value={b.okul} onChange={e => bGuncelle('okul', e.target.value)} placeholder="OKUL ADI" aria-label="Okul adı" />
               <div className="sh-b-satir">
                 <input className="sh-b-kucuk" value={b.ogretimYili} onChange={e => bGuncelle('ogretimYili', e.target.value)} placeholder="2026-2027" aria-label="Öğretim yılı" size={9} />
@@ -191,6 +195,10 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
                 <span>DERSİ</span>
               </div>
               <input className="sh-b-sinav" value={b.sinavAdi} onChange={e => bGuncelle('sinavAdi', e.target.value)} placeholder="SINAV ADI (örn. 1. Dönem 1. Yazılı)" aria-label="Sınav adı" />
+              </div>
+              <LogoYeri logo={b.logoSag} taraf="logoSag" sinavId={sinav.id} degistir={degistir} bildir={bildir} />
+              {sinav.ayar.grupSayisi > 1 && <span className="sh-b-grup" title="Grup harfi baskıda her kâğıtta ayrı görünür">A</span>}
+              </div>
               {sinav.ayar.ogrenciBilgisi && (
                 <div className="sh-b-ogrenci" aria-hidden="true">
                   <span>Adı Soyadı: <i /></span><span>Numarası: <i /></span><span>Sınıfı: <i /></span><span className="sh-b-puan">PUAN</span>
@@ -201,7 +209,6 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
                 <label>Süre<input value={b.sure} onChange={e => bGuncelle('sure', e.target.value)} placeholder="40 dakika" /></label>
               </div>
               <Duzenlenebilir className="sh-b-yonerge" deger={b.yonerge} onDegis={h => bGuncelle('yonerge', h)} yerTutucu="Sınav yönergesi (isteğe bağlı) — örn. Süre 40 dakikadır. Cevaplarınızı tükenmez kalemle yazınız." />
-              {sinav.ayar.grupSayisi > 1 && <span className="sh-b-grup" title="Grup harfi baskıda her kâğıtta ayrı görünür">A</span>}
             </div>
 
             {sinav.ogeler.length === 0 ? (
@@ -256,6 +263,44 @@ export default function Duzenleyici({ sinav, degistir, geriAl, yinele, geriVar, 
         </Pencere>
       )}
       {bildirim}
+    </div>
+  )
+}
+
+/** Kâğıt başlığında logo yeri: boşsa "Logo ekle", doluysa logo + değiştir / kaldır */
+function LogoYeri({ logo, taraf, sinavId, degistir, bildir }) {
+  const r = useRef(null)
+  const [mesgul, setMesgul] = useState(false)
+  const v = useGorsel(logo?.id)
+  async function sec(dosya) {
+    setMesgul(true)
+    try {
+      const l = await logoEkle(dosya, sinavId, taraf)
+      degistir(s => ({ ...s, baslik: { ...s.baslik, [taraf]: l } }))
+      bildir('Logo eklendi; yeni sınavlarınızda da kullanılacak.')
+    } catch (e) { bildir(e.message || 'Logo eklenemedi.', 'hata') } finally { setMesgul(false) }
+  }
+  function kaldir() {
+    degistir(s => ({ ...s, baslik: { ...s.baslik, [taraf]: null } }))
+    logoVarsayilaniKaldir(taraf)
+  }
+  const ad = taraf === 'logoSol' ? 'Sol logo' : 'Sağ logo'
+  return (
+    <div className={'sh-logo-yeri' + (logo ? ' dolu' : '')} onMouseDown={e => e.stopPropagation()}>
+      {logo ? (
+        <>
+          {v ? <img src={v.url} alt={ad} draggable={false} /> : <span className="sh-gorsel-yer" />}
+          <div className="sh-logo-arac">
+            <button type="button" title="Logoyu değiştir" aria-label={`${ad}: değiştir`} onClick={() => r.current?.click()}><Simge ad="yenile" boyut={14} /></button>
+            <button type="button" title="Logoyu kaldır" aria-label={`${ad}: kaldır`} className="tehlike" onClick={kaldir}><Simge ad="cop" boyut={14} /></button>
+          </div>
+        </>
+      ) : (
+        <button type="button" className="sh-logo-ekle" onClick={() => r.current?.click()} disabled={mesgul} title={`${ad} ekle (okul / kurum logosu)`} aria-label={`${ad} ekle`}>
+          {mesgul ? <span className="donen kucuk" /> : <Simge ad="gorsel" boyut={18} />}<span>Logo</span>
+        </button>
+      )}
+      <input ref={r} type="file" accept="image/*" hidden onChange={e => { const f = e.target.files?.[0]; e.target.value = ''; if (f) sec(f) }} />
     </div>
   )
 }

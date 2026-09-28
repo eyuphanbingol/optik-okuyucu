@@ -174,16 +174,27 @@ function kurucu(sinav, gorseller) {
       ikinci && new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 20 }, children: [new TextRun({ text: ikinci.toLocaleUpperCase('tr'), size: boy - 2 })] }),
       new Paragraph({ alignment: AlignmentType.CENTER, spacing: { before: 40 }, children: [new TextRun({ text: (bas.sinavAdi || 'SINAV').toLocaleUpperCase('tr'), bold: true, size: boy + 3 })] }),
     ].filter(Boolean)
-    const grupG = 24
-    const ust = grupSayisi > 1
-      ? tablo([satir([
-        hucre(orta, ICERIK_MM - grupG, { dikey: VerticalAlign.CENTER, sol: 2, sag: 2 }),
-        hucre([
-          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: grup.harf, bold: true, size: 48 })] }),
-          new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'GRUBU', bold: true, size: 14, characterSpacing: 20 })] }),
-        ], grupG, { dikey: VerticalAlign.CENTER }),
-      ], { yukseklik: 16 })], [ICERIK_MM - grupG, grupG], { kenar: CERCEVE('000000') })
-      : tablo([satir([hucre(orta, ICERIK_MM, { dikey: VerticalAlign.CENTER, sol: 2, sag: 2 })], { yukseklik: 16 })], [ICERIK_MM], { kenar: CERCEVE('000000') })
+    // başlık tablosu: [sol logo] | okul, yıl, sınav adı | [sağ logo] | [grup]
+    const grupG = 24, logoG = 24
+    const logoHucre = l => {
+      const v = l && gorseller.get(l.id)
+      if (!v) return null
+      const olc = Math.min(px(20) / v.genislik, px(17) / v.yukseklik)
+      return hucre([new Paragraph({ alignment: AlignmentType.CENTER, children: [new ImageRun({
+        type: v.tur === 'image/png' ? 'png' : v.tur === 'image/gif' ? 'gif' : 'jpg', data: v.veri,
+        transformation: { width: Math.round(v.genislik * olc), height: Math.round(v.yukseklik * olc) },
+        altText: { title: 'Logo', description: 'Kurum logosu', name: l.id },
+      })] })], logoG, { dikey: VerticalAlign.CENTER })
+    }
+    const sol = logoHucre(bas.logoSol), sag = logoHucre(bas.logoSag)
+    const grupHucre = grupSayisi > 1 ? hucre([
+      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: grup.harf, bold: true, size: 48 })] }),
+      new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'GRUBU', bold: true, size: 14, characterSpacing: 20 })] }),
+    ], grupG, { dikey: VerticalAlign.CENTER }) : null
+    const ortaG = ICERIK_MM - (sol ? logoG : 0) - (sag ? logoG : 0) - (grupHucre ? grupG : 0)
+    const hucreler = [sol, hucre(orta, ortaG, { dikey: VerticalAlign.CENTER, sol: 2, sag: 2 }), sag, grupHucre].filter(Boolean)
+    const genislikler = [sol && logoG, ortaG, sag && logoG, grupHucre && grupG].filter(Boolean)
+    const ust = tablo([satir(hucreler, { yukseklik: 16 })], genislikler, { kenar: CERCEVE('000000') })
     const bloklar = [ust]
 
     if (a.ogrenciBilgisi) {

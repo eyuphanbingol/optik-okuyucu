@@ -62,14 +62,20 @@ E-posta ayarlanmasa da site çalışır; Excel **İndir** ya da **Paylaş** ile 
    (ya da **Elle gir**).
 3. **Okut:** kâğıdı masaya koyun; dört köşedeki kare işaretler ekranda görünsün. Köşeler yeşil olunca kâğıt **iki ayrı karede**
    okunur, karşılaştırılır ve kaydedilir. Sıradaki kâğıdı üstüne koymanız yeterli; aynı kâğıt iki kez sayılmaz.
-4. **Sonuç:** e-posta adresinizi yazıp gönderin ya da Excel'i indirin.
+4. **Sonuç:** Excel'i indirin ya da paylaşın.
    Excel sayfaları: Sonuçlar, Sıralama, Cevaplar (renkli), Soru Analizi, Cevap Anahtarı, Bilgi.
+   **Soru iptali:** hatalı bir soru için *Herkese doğru say* (herkes o sorunun puanını alır) ya da *Soruyu çıkar* (soru yokmuş gibi
+   değerlendirilir, puanı kalan sorulara dağılır, toplam değişmez). Tüm puanlar ve Excel anında yeniden hesaplanır; iptal geri alınabilir.
+   Sınav hazırla'dan aktarılan sınavda aynı sorunun diğer kitapçıklardaki numarası otomatik bulunur (elle girilen anahtarlarda her
+   kitapçık için yazılır). Excel'de iptal edilen sorular mavi, Soru Analizi'nde öğrencilerin gerçek cevapları yine görünür.
 
 ### Sınav hazırla
 
 1. **Yeni sınav:** şablon (Test, Yazılı, Karma, Boş sayfa), soru sayısı, şık sayısı (A–C / A–D / A–E), **grup**: tek grup ya da
    2, 3, 4 grup (A, B, C, D — optik formdaki kitapçık türleriyle aynı) ve kâğıt başlığı (okul, ders, sınıf, sınav adı, isteğe bağlı öğretmen adı — kâğıtta yalnızca ad soyad
    yazar, "Öğretmen:" yazmaz). Hepsi sonradan değiştirilebilir.
+   **Okul logosu:** başlığın soluna ve sağına birer logo (okul, üniversite, il / ilçe MEB). Bir kez eklenen logo sonraki sınavlara
+   kendiliğinden gelir; kâğıtta, PDF'te ve Word dosyasında basılır.
 2. **Yazma:** sorular doğrudan kâğıdın üzerinde yazılır. Soru türleri: çoktan seçmeli, açık uçlu (klasik; çizgili ya da boş cevap alanı),
    kısa cevaplı, doğru / yanlış, boşluk doldurma (kelimeyi seçip **Boşluk yap** ya da `[köşeli parantez]`; isteğe bağlı kelime havuzu),
    eşleştirme ve numarasız bölüm başlıkları. Kalın / italik / altı çizili, üs / indis, liste, matematik sembolleri.
@@ -81,6 +87,11 @@ E-posta ayarlanmasa da site çalışır; Excel **İndir** ya da **Paylaş** ile 
 4. **Yazdır penceresi:**
    - *Öğrenci sayısı kadar* kâğıt (gruplar sırayla: A, B, C, A, B, C… — sırayla dağıtınca yan yana oturanlar farklı grup alır)
      ya da *her gruptan 1* (fotokopi için). Basılacak gruplar tek tek seçilebilir.
+   - *Sınıf listesinden:* e-Okul ya da öğrenci bilgi sisteminden alınan liste (Excel .xlsx, CSV ya da Excel'den kopyala-yapıştır;
+     "Öğrenci No / Adı / Soyadı" ya da "Adı Soyadı" başlıkları kendiliğinden bulunur). Her öğrencinin kâğıdında adı, numarası, sınıfı
+     yazılı; optik formunda **adı, soyadı, numarası ve kitapçık türü hazır kodlanmış** basılır — okutunca isimler elle düzeltilmez.
+     Formda olmayan harfler en yakın harfle kodlanır (W→V, Q→K, X→KS, Â→A), 13 harften uzun ad kısaltılır, 9 haneden uzun numara
+     kodlanmaz (uydurma numara basılmaz); hepsi yazdırmadan önce öğretmene listelenir. Liste sınavla birlikte bu cihazda saklanır.
    - *Her öğrenciye optik form:* her öğrencinin kâğıdının hemen arkasından bir optik form; istenirse **kitapçık türü yuvarlağı
      öğrencinin grubuyla dolu basılır** (öğrenci yanlış kitapçık işaretleyemez).
    - *Optikte işaretli cevap anahtarları:* sona, her grup için cevapları, kitapçık türü ve CEVAP ANAHTARI yuvarlağı dolu bir optik form;
@@ -217,5 +228,9 @@ python3 arac/optik_baski_test.py http://localhost:4173/           # yazdırılan
                                                                   # -> PDF -> görüntü -> tarayıcı/telefon/whatsapp/video -> okuyucu
 python3 arac/e2e_optik_baski_kamera.py http://localhost:4173/     # basılan anahtar ve öğrenci formları kamerayla optiğe okutulur,
                                                                   # puanlar/Excel ve "optiğe aktar" anahtarları karşılaştırılır
+python3 arac/sinif_listesi_test.py http://localhost:4173/         # e-Okul listesi (CSV / xlsx) -> isimli optik formlar -> okuyucu:
+                                                                  # ad, soyad, numara, kitapçık birebir (Türkçe harf, uzun ad, W, 10 hane)
+python3 arac/logo_iptal_test.py http://localhost:4173/            # okul logosu (önizleme, PDF, Word, yeni sınav) + optikte soru iptali
+                                                                  # (herkese doğru / çıkar, kitapçık eşleşmesi, puan ve Excel, geri al)
 # (arac/e2e_test.py ve arac/kamera_test.py kaldırılan "fotoğraftan okut" düğmesini kullanır; yerlerine e2e_kamera_test.py)
 ```

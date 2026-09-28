@@ -77,5 +77,8 @@ export function optikDurumu(sinav) {
     ekran: 'okut',
     olusturma: Date.now(),
     kaynakSinav: sinav.id,
+    // her kitapçıkta soruların sırası (soru kimlikleriyle): optikte soru iptal edilince aynı sorunun
+    // diğer kitapçıklardaki numarası buradan bulunur
+    soruKimlikleri: Object.fromEntries(tumGruplar(sinav).slice(0, OPTIK_KITAPCIK).map(g => [g.harf, g.ogeler.filter(soruMu).map(o => o.id)])),
   }
 }

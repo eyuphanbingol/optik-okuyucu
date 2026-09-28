@@ -28,7 +28,29 @@ function bosluklariCiz(html) {
 }
 
 // ------------------------------------------------------------------ bloklar
-export function BaskiBaslik({ sinav, grup, grupSayisi }) {
+/** Hücreye sığmayan metnin yazısını sığana kadar küçültür (satır yüksekliği değişmez, sayfa ölçüsü bozulmaz) */
+function SigdirilanHucre({ className, metin }) {
+  const r = useRef(null)
+  useLayoutEffect(() => {
+    const td = r.current
+    if (!td || !metin) return
+    let iptal = false
+    const olc = () => {
+      if (iptal) return
+      td.style.fontSize = ''
+      for (let f = 1; td.scrollWidth > td.clientWidth + 0.5 && f > 0.46;) { f -= 0.04; td.style.fontSize = `${f.toFixed(2)}em` }
+    }
+    olc()
+    document.fonts?.ready?.then(olc)
+    return () => { iptal = true }
+  }, [metin])
+  return <td ref={r} className={className}>{metin || null}</td>
+}
+
+/** ogrenci: sınıf listesinden basılırken { ad, soyad, no, sinif } — öğrenci tablosuna yazılır */
+export function BaskiBaslik({ sinav, grup, grupSayisi, ogrenci }) {
+  // uzun ad soyad kesilmez: yazı hücreye sığana kadar küçülür
+  const adSoyadMetni = ogrenci ? [ogrenci.ad, ogrenci.soyad].filter(Boolean).join(' ') : ''
   const b = sinav.baslik, a = sinav.ayar
   const sorular = grup.ogeler.filter(soruMu)
   const ikinciSatir = [b.ogretimYili && `${b.ogretimYili} EĞİTİM-ÖĞRETİM YILI`, b.sinif, b.ders && `${b.ders} DERSİ`].filter(Boolean).join(' ')
@@ -39,11 +61,13 @@ export function BaskiBaslik({ sinav, grup, grupSayisi }) {
       <table className="bs-baslik-tablo">
         <tbody>
           <tr>
+            {b.logoSol && <td className="bs-logo"><BaskiLogo gorsel={b.logoSol} /></td>}
             <td className="bs-bt-orta">
               {b.okul && <div className="bs-okul">{b.okul}</div>}
               {ikinciSatir && <div className="bs-yil">{ikinciSatir}</div>}
               <div className="bs-sinav-adi">{b.sinavAdi || 'SINAV'}</div>
             </td>
+            {b.logoSag && <td className="bs-logo"><BaskiLogo gorsel={b.logoSag} /></td>}
             {grupSayisi > 1 && <td className="bs-grup-kutu"><b>{grup.harf}</b><small>GRUBU</small></td>}
           </tr>
         </tbody>
@@ -52,9 +76,9 @@ export function BaskiBaslik({ sinav, grup, grupSayisi }) {
         <table className="bs-ogrenci">
           <tbody>
             <tr>
-              <th>Adı Soyadı</th><td className="uzun" />
-              <th>Numarası</th><td />
-              <th>Sınıfı</th><td className="kisa" />
+              <th>Adı Soyadı</th><SigdirilanHucre className="uzun bs-dolu" metin={adSoyadMetni} />
+              <th>Numarası</th><td className="bs-dolu">{ogrenci ? ogrenci.no : null}</td>
+              <th>Sınıfı</th><td className="kisa bs-dolu">{ogrenci ? ogrenci.sinif : null}</td>
               <td rowSpan={2} className="bs-puan-kutu"><span>PUAN</span></td>
             </tr>
             <tr>
@@ -77,6 +101,11 @@ export function BaskiBaslik({ sinav, grup, grupSayisi }) {
       {b.yonerge && <Html className="bs-yonerge" html={b.yonerge} />}
     </div>
   )
+}
+
+function BaskiLogo({ gorsel }) {
+  const v = useGorsel(gorsel?.id)
+  return v ? <img src={v.url} alt="" /> : <div className="bs-gorsel-yer" />
 }
 
 function BaskiGorsel({ gorsel, kucuk }) {
@@ -298,7 +327,7 @@ export function GrupOlcer({ sinav, grup, grupSayisi, onPlan }) {
 }
 
 /** Ölçülmüş plandan bir grubun A4 sayfalarını çizer (yazdırmada aynı plan öğrenci sayısı kadar tekrar çizilir) */
-export function GrupSayfaCizim({ sinav, grup, grupSayisi, plan, olcek }) {
+export function GrupSayfaCizim({ sinav, grup, grupSayisi, plan, olcek, ogrenci }) {
   const a = sinav.ayar
   const sutunSayisi = a.sutun === 2 ? 2 : 1
   const sayfaStil = { '--yazi': `${a.yaziBoyutu}pt` }
@@ -306,9 +335,9 @@ export function GrupSayfaCizim({ sinav, grup, grupSayisi, plan, olcek }) {
   return plan.sayfalar.map((s, k) => (
     <div key={k} className="bs-sayfa-sarmal" style={olcek ? { '--olcek': olcek } : undefined}>
       <div className={`bs-sayfa ${sinif}`} style={sayfaStil} data-grup={grup.harf} data-sayfa={k + 1}>
-        {s.baslik ? <BaskiBaslik sinav={sinav} grup={grup} grupSayisi={grupSayisi} /> : (
+        {s.baslik ? <BaskiBaslik sinav={sinav} grup={grup} grupSayisi={grupSayisi} ogrenci={ogrenci} /> : (
           <div className="bs-devam-ust">
-            <span>{[sinav.baslik.ders, sinav.baslik.sinavAdi].filter(Boolean).join(' · ')}</span>
+            <span>{[sinav.baslik.ders, sinav.baslik.sinavAdi, ogrenci && [ogrenci.ad, ogrenci.soyad].filter(Boolean).join(' ')].filter(Boolean).join(' · ')}</span>
             {grupSayisi > 1 && <b className="bs-grup-rozet" title={`${grup.harf} grubu`}>{grup.harf}</b>}
           </div>
         )}

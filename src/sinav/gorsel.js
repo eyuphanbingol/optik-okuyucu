@@ -78,6 +78,15 @@ export function useGorsel(id) {
   return v
 }
 
+/** Görselin başka bir sınava (ya da öğretmen profiline) kopyası: { id, genislik, yukseklik } */
+export async function gorselKopyala(id, sinavId) {
+  const g = await gorselGetir(id)
+  if (!g || !g.blob) return null
+  const yeni = yeniId()
+  await gorselKaydet({ ...g, id: yeni, sinavId })
+  return { id: yeni, genislik: g.genislik, yukseklik: g.yukseklik }
+}
+
 /** Word dışa aktarımı için ham baytlar */
 export async function gorselBaytlari(id) {
   const g = await gorselGetir(id)
