@@ -6,7 +6,7 @@ import KontrolPenceresi from './bilesenler/KontrolPenceresi.jsx'
 import Simge, { Logo } from './bilesenler/Simge.jsx'
 import { hazirla } from './omr/istemci.js'
 import * as depo from './depo.js'
-import { basariSesi, uyariSesi, sesiAc } from './ses.js'
+import { basariSesi, uyariSesi, sesiAc, sesAcikMi, sesAyarla } from './ses.js'
 import {
   varsayilanAyar, soruPuani, puanla, sayiTR, adSoyad, sorunlariBul, kitapcikSec,
   kayitOlustur, tekrarKontrol, anahtarTaslagi, SIKLAR,
@@ -193,6 +193,18 @@ function AyarEkrani({ sinav, setSinav, git, devamSor }) {
   )
 }
 
+/** Okutma ekranında "okundu" sesini aç / kapat (bu cihazda hatırlanır) */
+function SesDugmesi() {
+  const [acik, setAcik] = useState(sesAcikMi)
+  return (
+    <button type="button" className={'kamera-ses' + (acik ? '' : ' kapali')} aria-pressed={acik}
+      aria-label={acik ? 'Okundu sesi açık: kapat' : 'Okundu sesi kapalı: aç'} title={acik ? 'Sesi kapat' : 'Sesi aç'}
+      onClick={() => { sesAyarla(!acik); setAcik(!acik) }}>
+      <Simge ad={acik ? 'ses' : 'sesKapali'} boyut={18} kalinlik={2} />
+    </button>
+  )
+}
+
 // =====================================================================
 function AnahtarEkrani({ sinav, setSinav, git, okuyucuDurum, yukleme }) {
   const N = sinav.ayar.soruSayisi
@@ -257,7 +269,10 @@ function AnahtarEkrani({ sinav, setSinav, git, okuyucuDurum, yukleme }) {
         <div className="kamera-ekran" role="dialog" aria-modal="true" aria-label="Kamera">
           <div className="kamera-ekran-ust">
             <span className="kamera-ekran-baslik"><Simge ad="anahtar" boyut={16} />Cevap anahtarı</span>
-            <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}><Simge ad="kapat" boyut={16} kalinlik={2.2} />Kapat</button>
+            <div className="kamera-ekran-sag">
+              <SesDugmesi />
+              <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}><Simge ad="kapat" boyut={16} kalinlik={2.2} />Kapat</button>
+            </div>
           </div>
           <Kamera aktif={!duzenle} onKabul={okundu} ipucu="Cevap anahtarı kâğıdını okutun" />
         </div>,
@@ -391,7 +406,10 @@ function OkutEkrani({ sinav, setSinav, git, okuyucuDurum }) {
         <div className={'kamera-ekran' + (aktifIs ? ' kamera-ekran-beklemede' : '')} role="dialog" aria-modal="true" aria-label="Kamera" aria-hidden={!!aktifIs}>
           <div className="kamera-ekran-ust">
             <span className="kamera-ekran-baslik"><span className="sayi-rozet">{ogrenciler.length}</span>öğrenci okundu</span>
-            <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}><Simge ad="kapat" boyut={16} kalinlik={2.2} />Kapat</button>
+            <div className="kamera-ekran-sag">
+              <SesDugmesi />
+              <button type="button" className="kamera-ekran-kapat" onClick={() => setKamera(false)}><Simge ad="kapat" boyut={16} kalinlik={2.2} />Kapat</button>
+            </div>
           </div>
           <div className="okut-kamera">
             <Kamera aktif={!aktifIs && okuyucuDurum === 'hazir'} onKabul={okundu} />

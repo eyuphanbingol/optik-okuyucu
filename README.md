@@ -62,6 +62,9 @@ E-posta ayarlanmasa da site çalışır; Excel **İndir** ya da **Paylaş** ile 
    (ya da **Elle gir**).
 3. **Okut:** kâğıdı masaya koyun; dört köşedeki kare işaretler ekranda görünsün. Köşeler yeşil olunca kâğıt **iki ayrı karede**
    okunur, karşılaştırılır ve kaydedilir. Sıradaki kâğıdı üstüne koymanız yeterli; aynı kâğıt iki kez sayılmaz.
+   Kâğıt okunup kaydedilince yüksek ve net bir **"bi-bip"** sesi çalar (Android'de titreşim de): ekrana bakmadan kâğıdı çekip
+   sıradakini koyun. Kontrol gereken kâğıtta (çift işaret, okunamayan numara, aynı kâğıt …) ondan farklı, kalın bir uyarı sesi çalar.
+   iPhone zil düğmesi sessizdeyken de duyulur. Ses, kamera ekranındaki hoparlör düğmesiyle kapatılıp açılabilir.
 4. **Sonuç:** Excel'i indirin ya da paylaşın.
    Excel sayfaları: Sonuçlar, Sıralama, Cevaplar (renkli), Soru Analizi, Cevap Anahtarı, Bilgi.
    **Soru iptali:** hatalı bir soru için *Herkese doğru say* (herkes o sorunun puanını alır) ya da *Soruyu çıkar* (soru yokmuş gibi
@@ -222,6 +225,7 @@ node arac/js_test.mjs /tmp/deneme                            # sessiz hata sayı
 python3 arac/e2e_veri.py /tmp/e2e && python3 arac/e2e_video.py /tmp/e2e
 python3 arac/e2e_kamera_test.py /tmp/e2e http://localhost:4173/   # anahtar + öğrenciler canlı kamerayla, Excel
 python3 arac/yukleme_test.py http://localhost:4173/
+node arac/ses_test.mjs /tmp                                   # okundu / uyarı seslerini WAV yazar; yükseklik, ton, tıkırtı denetimi
 python3 arac/e2e_sinav_test.py http://localhost:4173/             # sınav hazırla: tüm soru türleri, görsel, gruplar (tek–A/B/C/D),
                                                                   # anahtar doğrulaması, PDF, Word, yedek, optiğe aktarma
 python3 arac/optik_baski_test.py http://localhost:4173/           # yazdırılan optik formlar (kitapçıklı öğrenci + işaretli anahtar)

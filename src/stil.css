@@ -1366,6 +1366,7 @@ button:disabled { opacity: 0.48; cursor: default; }
 
 .kamera-ekran-baslik,
 .kamera-ekran-kapat,
+.kamera-ses,
 .kamera-mesaj,
 .kamera-ipucu {
   background: rgba(16, 22, 22, 0.56);
@@ -1419,6 +1420,14 @@ button:disabled { opacity: 0.48; cursor: default; }
 }
 
 .kamera-ekran-kapat:hover { background: rgba(40, 48, 48, 0.7); }
+.kamera-ekran-sag { display: inline-flex; align-items: center; gap: 8px; }
+.kamera-ses {
+  display: inline-grid; place-items: center; width: 40px; height: 40px; padding: 0; border-radius: 999px;
+  color: #fff; cursor: pointer; transition: background var(--gecis), transform 120ms var(--kolay), color var(--gecis);
+}
+.kamera-ses:hover { background: rgba(40, 48, 48, 0.7); }
+.kamera-ses:active { transform: scale(0.96); }
+.kamera-ses.kapali { color: rgba(255, 255, 255, 0.55); }
 .kamera-ekran-kapat:active { transform: scale(0.96); }
 
 .kamera-ekran .okut-kamera {

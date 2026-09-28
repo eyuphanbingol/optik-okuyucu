@@ -45,6 +45,16 @@ def ac(p, video):
     ctx = p.chromium.launch_persistent_context(
         str(profil), viewport={"width": 430, "height": 920}, accept_downloads=True, permissions=["camera"],
         args=["--use-fake-ui-for-media-stream", "--use-fake-device-for-media-stream", f"--use-file-for-fake-video-capture={video}"])
+    # çalan sesleri kaydet (süre ve tepe seviyesi): okundu sesi = 275 ms "bi-bip", uyarı = 430 ms
+    ctx.add_init_script("""(() => {
+      window.__sesler = []
+      const bas = AudioBufferSourceNode.prototype.start
+      AudioBufferSourceNode.prototype.start = function (...a) {
+        try { const d = this.buffer.getChannelData(0); let t = 0; for (let i = 0; i < d.length; i += 7) t = Math.max(t, Math.abs(d[i]))
+          window.__sesler.push({ ms: Math.round(this.buffer.duration * 1000), tepe: +t.toFixed(2), zaman: Date.now() }) } catch (e) {}
+        return bas.apply(this, a)
+      }
+    })()""")
     s = ctx.pages[0] if ctx.pages else ctx.new_page()
     s.on("console", lambda m: konsol.append(f"{m.type}: {m.text}") if m.type == "error" and "fonts.g" not in m.text else None)
     s.on("pageerror", lambda e: konsol.append(f"pageerror: {e}"))
@@ -162,6 +172,21 @@ with sync_playwright() as p:
         time.sleep(0.2)
     print("  bildirimler:", list(zip(zamanlar, bildirimler)))
     print("  görülen kamera mesajları:", sorted(mesajlar))
+    sesler = s.evaluate("window.__sesler")
+    okundu_sesi = [x for x in sesler if x["ms"] == 275]
+    uyari_sesi = [x for x in sesler if x["ms"] == 430]
+    print(f"  sesler: {len(okundu_sesi)} okundu, {len(uyari_sesi)} uyarı; tepe {sorted({x['tepe'] for x in sesler})}")
+    kaydedilen = int(s.locator(".sayac").inner_text().split()[0])
+    kontrol(kaydedilen == len(okundu_sesi), f"her kaydedilen kâğıtta bir kez yüksek 'okundu' sesi ({len(okundu_sesi)} ses / {kaydedilen} kâğıt)")
+    kontrol(all(x["tepe"] >= 0.9 for x in sesler), "sesler tam seviyeye yakın (yüksek)")
+    kontrol(len(uyari_sesi) >= pencere + (1 if any("zaten okunmuş" in b for b in bildirimler) else 0), f"kontrol penceresi / aynı kâğıt için ayrı uyarı sesi ({len(uyari_sesi)})")
+    # ses düğmesi: kapat -> hatırlanır; aç -> örnek ses
+    s.click(".kamera-ses")
+    kontrol(s.get_attribute(".kamera-ses", "aria-pressed") == "false" and s.evaluate("localStorage.getItem('optik-okuyucu.ses')") == "kapali", "ses düğmesi: kapatıldı ve hatırlandı")
+    n0 = s.evaluate("window.__sesler.length")
+    s.click(".kamera-ses")
+    kontrol(s.get_attribute(".kamera-ses", "aria-pressed") == "true" and s.evaluate("window.__sesler.length") == n0 + 1, "ses düğmesi: açılınca örnek ses çaldı")
+    s.locator(".kamera-ekran-ust").screenshot(path=str(CIKTI / "e2e-kamera-ses-dugmesi.png"))
     s.click(".kamera-ekran-kapat")
 
     def liste_oku():
