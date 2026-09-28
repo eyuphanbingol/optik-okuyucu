@@ -14,6 +14,7 @@
     "test:sinav": "python3 arac/e2e_sinav_test.py"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.117.2",
     "@techstark/opencv-js": "5.0.0-release.1",
     "docx": "^9.7.2",
     "exceljs": "^4.4.0",
