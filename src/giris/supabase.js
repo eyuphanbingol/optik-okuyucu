@@ -21,7 +21,10 @@ export function kullaniciAdiNormal(s) {
   return String(s || '').trim().replace(/İ/g, 'i').toLowerCase().replace(/[çğıöşü]/g, h => HARF[h]).replace(/\s+/g, '')
 }
 
-export const epostaYap = ad => kullaniciAdiNormal(ad) + EPOSTA_UZANTI
+export const epostaYap = ad => {
+  const n = kullaniciAdiNormal(ad)
+  return n.includes('@') ? n : n + EPOSTA_UZANTI
+}
 
 export function sifreUret(uzunluk = 10) {
   const abc = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789'
