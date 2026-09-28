@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import Simge from '../bilesenler/Simge.jsx'
+import GrupOzeti from './GrupOzeti.jsx'
 import { GrupSayfalari, GrupSayfaCizim, GrupOlcer, CevapAnahtari, BosSayfa, SAYFA, olcumAnahtari } from './Baski.jsx'
 import { OptikFormSayfasi } from './OptikForm.jsx'
 import { tumGruplar } from './karistir.js'
-import { eksikler, soruSayisi, toplamPuan, puanMetni, puanlariDagit, soruMu, sinavBaslikMetni } from './model.js'
+import { eksikler, soruSayisi, toplamPuan, puanMetni, puanlariDagit, soruMu, sinavBaslikMetni, yenidenKaristir } from './model.js'
 import { duzMetin } from './metin.js'
 import { Secici, Anahtar, Pencere, Sayac, GrupSecici, useBildirim, kabukKaymasin } from './arayuz.jsx'
 import { optigeAktarilabilir, optikYapiUygun, optikDurumu, puanDurumu } from './optikAktar.js'
@@ -107,7 +108,9 @@ export default function Onizleme({ sinav, degistir, kaydetSimdi }) {
               <>
                 <Anahtar deger={a.soruKaristir} onDegis={v => ayarla('soruKaristir', v)}>Soru sırasını karıştır</Anahtar>
                 <Anahtar deger={a.sikKaristir} onDegis={v => ayarla('sikKaristir', v)}>Şıkları karıştır</Anahtar>
-                <button type="button" className="ikincil kucuk tam" onClick={() => ayarla('tohum', Math.floor(Math.random() * 1e9))}><Simge ad="karistir" boyut={15} />Yeniden karıştır</button>
+                <button type="button" className="ikincil kucuk tam" onClick={() => yenidenKaristir(degistir)}><Simge ad="karistir" boyut={15} />Yeniden karıştır</button>
+                <p className="sh-oz-not">A grubu yazdığınız sırada kalır; diğer gruplar karıştırılır. Sekmelerden her grubun kâğıdına bakabilirsiniz.</p>
+                <GrupOzeti sinav={sinav} />
               </>
             )}
           </section>

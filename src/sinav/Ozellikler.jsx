@@ -1,8 +1,9 @@
 import { useMemo, useRef } from 'react'
 import Simge from '../bilesenler/Simge.jsx'
+import GrupOzeti from './GrupOzeti.jsx'
 import { Anahtar, Secici, Sayac, Acilir, GrupSecici } from './arayuz.jsx'
 import { TurMenusu } from './Ogeler.jsx'
-import { TURLER, soruSayisi, toplamPuan, eksikler, puanlariDagit, puanMetni } from './model.js'
+import { TURLER, soruSayisi, toplamPuan, eksikler, puanlariDagit, puanMetni, yenidenKaristir } from './model.js'
 import { duzMetin } from './metin.js'
 
 /** Sağ panel: seçili soru yoksa sınav ayarları, varsa sorunun özellikleri */
@@ -52,8 +53,9 @@ function SinavAyarlari({ sinav, degistir, islem }) {
           <>
             <Anahtar deger={a.soruKaristir} onDegis={v => ayarla('soruKaristir', v)} aciklama="Bölüm başlıkları yerinde kalır">Soru sırasını karıştır</Anahtar>
             <Anahtar deger={a.sikKaristir} onDegis={v => ayarla('sikKaristir', v)} aciklama="Sabitlenen sorular hariç">Şıkları karıştır</Anahtar>
-            <button type="button" className="ikincil kucuk tam" onClick={() => ayarla('tohum', Math.floor(Math.random() * 1e9))}><Simge ad="karistir" boyut={15} />Grupları yeniden karıştır</button>
-            <p className="sh-oz-not">A grubu yazdığınız sırada basılır; diğer gruplar farklı sırayla. Cevap anahtarı her grup için ayrı oluşturulur.</p>
+            <button type="button" className="ikincil kucuk tam" onClick={() => yenidenKaristir(degistir)}><Simge ad="karistir" boyut={15} />Grupları yeniden karıştır</button>
+            <p className="sh-oz-not">A grubu yazdığınız sırada basılır; diğer gruplar karıştırılır. Cevap anahtarı her grup için ayrı oluşturulur.</p>
+            <GrupOzeti sinav={sinav} />
           </>
         )}
       </Bolum>

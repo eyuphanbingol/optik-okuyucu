@@ -375,4 +375,53 @@ t('sınıf listesinden yazdırma: listedeki her öğrenciye sırayla grup, kâğ
   assert.equal(baskiListesi(sec, () => 2, { listeSayisi: 0 }).length, 0)
 })
 
+t('karıştırma: grupları hiç değişmez (sürüm 1 eski sınavlar, sürüm 2 yeniler; basılmış kâğıtlar / optik anahtarları korunur)', () => {
+  const ogeler = Array.from({ length: 10 }, (_, i) => ({ id: `q${i}`, tur: 'coktan', puan: 10, metin: `S${i}`, gorsel: null,
+    siklar: Array.from({ length: 5 }, (_, j) => ({ id: `q${i}s${j}`, metin: `${i}${j}`, gorsel: null })), dogru: `q${i}s${i % 5}`, sikKilit: false }))
+  const s = { id: 'x', baslik: {}, ayar: { grupSayisi: 4, soruKaristir: true, sikKaristir: true, tohum: 12345 }, ogeler }
+  const ozet = tumGruplar(s).map(g => [g.ogeler.map(o => o.id.slice(1)).join(','), g.ogeler.map(o => o.dogruHarf).join('')])
+  assert.deepEqual(ozet, [['0,1,2,3,4,5,6,7,8,9', 'ABCDEABCDE'], ['3,4,7,8,2,6,0,9,5,1', 'ACEEDBDEEA'], ['2,4,9,8,6,1,7,5,3,0', 'EDEADADAAE'], ['6,9,3,8,5,2,7,0,1,4', 'DABBEAEADC']])
+  // sürüm 2 de sabit kalmalı (bu sürümle basılan sınavlar için)
+  s.ayar.karistirma = 2
+  const ozet2 = tumGruplar(s).map(g => [g.ogeler.map(o => o.id.slice(1)).join(','), g.ogeler.map(o => o.dogruHarf).join('')])
+  assert.deepEqual(ozet2, [['0,1,2,3,4,5,6,7,8,9', 'ABCDEABCDE'], ['9,2,6,5,0,7,4,8,3,1', 'AEDBBDBEEE'], ['2,7,1,9,8,3,5,0,6,4', 'DEABBCEEAD'], ['7,4,8,0,3,9,2,5,1,6', 'BACCADBDDE']])
+})
+t('karıştırma (yeni sınav): her soru başka yerde, her doğru cevap her grupta başka harfte', () => {
+  for (const [n, k] of [[10, 5], [12, 4], [25, 5], [40, 4], [80, 5], [7, 5], [5, 4], [20, 3]]) {
+    for (let tekrar = 0; tekrar < 5; tekrar++) {
+      const s = testSinavi(n, 4)
+      assert.equal(s.ayar.karistirma, 2)
+      s.ogeler.forEach(o => { o.siklar = o.siklar.slice(0, k); if (!o.siklar.some(x => x.id === o.dogru)) o.dogru = o.siklar[0].id })
+      s.ayar.tohum = 1000 + tekrar * 7 + n
+      const g = tumGruplar(s)
+      const yer = g.map(gr => new Map(gr.ogeler.map((o, i) => [o.id, i])))
+      const harf = g.map(gr => new Map(gr.ogeler.map(o => [o.id, o.dogruIndex])))
+      for (const o of s.ogeler) {
+        // soru: dört grupta dört ayrı yerde
+        assert.equal(new Set(yer.map(m => m.get(o.id))).size, 4, `${n} soru: ${o.id} bir grupta aynı yerde`)
+        // doğru cevap: şık sayısı yettiğince her grupta ayrı harf (3 şıkta en çok 3 farklı harf olabilir)
+        assert.equal(new Set(harf.map(m => m.get(o.id))).size, Math.min(4, k), `${n} soru ${k} şık: ${o.id} doğru cevabı aynı harfte`)
+      }
+      // şıklar: B grubunda hiçbir şık A'daki harfinde değil
+      for (const o of g[1].ogeler) assert.ok(o.siklarSirali.every((x, i) => s.ogeler.find(a => a.id === o.id).siklar[i].id !== x.id))
+      // anahtar = kâğıttaki doğru şık; aynı tohumla her açılışta aynı gruplar
+      assert.deepEqual(JSON.stringify(tumGruplar(s)), JSON.stringify(g))
+      g.forEach(gr => gr.ogeler.forEach(o => assert.equal(o.siklarSirali[o.dogruIndex].id, o.dogru)))
+    }
+  }
+})
+t('karıştırma (yeni sınav): kapalıyken sıra / şıklar A ile aynı; sabitlenen şıklar ve bölümler yerinde', () => {
+  const s = testSinavi(12, 3)
+  s.ayar.soruKaristir = false; s.ayar.sikKaristir = false
+  tumGruplar(s).forEach(g => { assert.deepEqual(g.ogeler.map(o => o.id), s.ogeler.map(o => o.id)); g.ogeler.forEach(o => assert.deepEqual(o.siklarSirali.map(x => x.id), s.ogeler.find(a => a.id === o.id).siklar.map(x => x.id))) })
+  s.ayar.soruKaristir = true; s.ayar.sikKaristir = true
+  s.ogeler[2].sikKilit = true
+  const b = yeniOge('bolum'); s.ogeler.splice(6, 0, b)
+  tumGruplar(s).forEach(g => {
+    assert.equal(g.ogeler[6].id, b.id)                                     // bölüm başlığı yerinde
+    assert.deepEqual(new Set(g.ogeler.slice(0, 6).map(o => o.id)), new Set(s.ogeler.slice(0, 6).map(o => o.id)))   // bölüm içinde
+    assert.deepEqual(g.ogeler.find(o => o.id === s.ogeler[2].id).siklarSirali.map(x => x.id), s.ogeler[2].siklar.map(x => x.id))
+  })
+})
+
 console.log(`\n${gecen} test geçti`)

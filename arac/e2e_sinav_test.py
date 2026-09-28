@@ -433,6 +433,22 @@ with sync_playwright() as p:
     s.locator(".sh-ozellik label.sh-anahtar:has-text('Puan tablosu')").click()
     kontrol(s.locator(".sh-b-puan-tablosu").count() == 0, "düzenleyici: 'Puan tablosu' kapatılınca kalkıyor")
     s.screenshot(path=str(CIKTI / "08-duzenleyici-anahtarlar.png"))
+    # karıştırma: etkisi ayar panelindeki grup özetinde hemen görünür; yeni sınavda hiçbir soru / doğru cevap A ile aynı yerde değil
+    ozet = lambda: [[r.locator(".sh-go-satir").nth(j).locator("i").all_inner_texts() for j in range(2)] for r in s.locator(".sh-ozellik .sh-grup-ozeti-satir").all()]
+    a_, b_ = ozet()
+    kontrol(a_[0] == [str(i) for i in range(1, 13)] and b_[0] != a_[0] and all(b_[0][i] != str(i + 1) for i in range(12)),
+            f"karıştırma: B grubunda hiçbir soru A'daki yerinde değil ({' '.join(b_[0])})")
+    b_harf = {b_[0][i]: b_[1][i] for i in range(12)}
+    kontrol(all(b_harf[str(i + 1)] != a_[1][i] for i in range(12)), f"karıştırma: her sorunun doğru cevabı B'de başka harfte ({''.join(b_[1])} / A {''.join(a_[1])})")
+    s.locator(".sh-ozellik label.sh-anahtar:has-text('Soru sırasını karıştır')").click()
+    kontrol(ozet()[1][0] == a_[0], "'Soru sırasını karıştır' kapatılınca B'nin sırası A ile aynı")
+    s.locator(".sh-ozellik label.sh-anahtar:has-text('Şıkları karıştır')").click()
+    kontrol(ozet()[1][1] == a_[1], "'Şıkları karıştır' kapatılınca B'nin cevapları A ile aynı")
+    s.locator(".sh-ozellik label.sh-anahtar:has-text('Soru sırasını karıştır')").click()
+    s.locator(".sh-ozellik label.sh-anahtar:has-text('Şıkları karıştır')").click()
+    kontrol(ozet()[1] == b_, "açılınca aynı karışık sıra geri geldi (tohum korunur)")
+    s.click(".sh-ozellik button:has-text('Grupları yeniden karıştır')")
+    kontrol(ozet()[1][0] != b_[0] or ozet()[1][1] != b_[1], "'Yeniden karıştır' yeni bir sıra üretti")
     s.goto(s.url + "/yazdir")
     s.wait_for_selector(".sh-sayfalar .bs-sayfa:not(.bs-yukleniyor)")
     s.evaluate("() => { const o = document.querySelector('.sh-oniz-yan'); o.scrollTop = o.scrollHeight }")

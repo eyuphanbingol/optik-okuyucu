@@ -57,12 +57,17 @@ export function varsayilanBaslik(profil = {}) {
   }
 }
 
+/** "Yeniden karıştır": yeni tohum ve en güncel karıştırma (sürüm 2) */
+export const yenidenKaristir = degistir =>
+  degistir(s => ({ ...s, ayar: { ...s.ayar, tohum: Math.floor(Math.random() * 1e9), karistirma: 2 } }))
+
 export function varsayilanAyar() {
   return {
     grupSayisi: 1,
     soruKaristir: true,
     sikKaristir: true,
     tohum: Math.floor(Math.random() * 1e9),
+    karistirma: 2,          // karıştırma sürümü (karistir.js): eski sınavlarda yok = 1, basılmış grupları değişmesin
     sutun: 1,
     yaziTipi: 'modern',     // modern | klasik | arial
     yaziBoyutu: 11,         // pt

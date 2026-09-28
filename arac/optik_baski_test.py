@@ -64,7 +64,7 @@ def sinav_uret(N, K, G, tohum):
         "id": f"x{tohum}", "surum": 1, "olusturma": 0, "guncelleme": 0,
         "baslik": {"okul": "Deneme Lisesi", "ogretimYili": "2026-2027", "ders": "Fen", "sinif": "9/A", "sinavAdi": ad,
                    "tarih": "", "sure": "", "ogretmen": "", "yonerge": ""},
-        "ayar": {"grupSayisi": G, "soruKaristir": True, "sikKaristir": True, "tohum": int(tohum) * 7919 + 13, "sutun": 1,
+        "ayar": {"grupSayisi": G, "soruKaristir": True, "sikKaristir": True, "tohum": int(tohum) * 7919 + 13, "karistirma": 2, "sutun": 1,
                  "yaziTipi": "modern", "yaziBoyutu": 11, "puanGoster": True, "ogrenciBilgisi": True, "puanTablosu": False,
                  "altBilgi": "Başarılar dilerim.", "sayfaNo": True, "sikDuzeni": "alt"},
         "ogeler": ogeler,

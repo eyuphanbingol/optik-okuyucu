@@ -7,6 +7,12 @@
  *  - Eşleştirmenin sağ sütunu ve boşluk doldurmanın kelime havuzu her grupta (A dahil) karıştırılır;
  *    yoksa cevaplar sıradan okunurdu.
  *  - Karıştırma tohuma bağlıdır: aynı sınav her açılışta aynı grupları üretir. "Yeniden karıştır" tohumu değiştirir.
+ *
+ * Karıştırma sürümü (ayar.karistirma):
+ *  1 (eski sınavlar, alan yok): grubun sırası A'dan ve önceki gruplardan farklı; tek tek sorular yerinde kalabilir.
+ *  2 (yeni sınavlar ve "Yeniden karıştır"): her soru mümkünse A'daki ve önceki gruplardaki yerinden başka yere gider,
+ *    her sorunun doğru şıkkı mümkünse her grupta başka harfe düşer, diğer şıklar da yer değiştirir.
+ *  Basılmış eski bir sınavın grupları (ve optiğe aktarılan anahtarları) değişmesin diye eski sınavlar 1'de kalır.
  */
 import { GRUP_HARFLERI, HARFLER, soruMu, grupSayisiSinirla } from './model.js'
 
@@ -62,6 +68,72 @@ function grupSirasi(ids, anahtar, g) {
   return siralar[g - 1]
 }
 
+// ------------------------------------------------------------------ sürüm 2: yer değişimi garantili karıştırma
+
+/** n ≤ 6 için tüm sıralamalar (şıklar, küçük bölümler) */
+function tumSiralar(n) {
+  if (n <= 1) return [[...Array(n).keys()]]
+  const sonuc = []
+  for (const alt of tumSiralar(n - 1)) for (let i = 0; i <= alt.length; i++) sonuc.push([...alt.slice(0, i), n - 1, ...alt.slice(i)])
+  return sonuc
+}
+
+/**
+ * Önceki sıralarla (A ve önceki gruplar) çakışmayı en aza indiren sıra.
+ * ceza(s): 0 en iyi. Küçük dizilerde tüm sıralar (tohuma göre karışık sırayla) denenir, büyüklerde 400 rastgele deneme.
+ */
+function enIyiSira(dizi, tohum, ceza) {
+  const n = dizi.length
+  if (n < 2) return [...dizi]
+  let en = null, enCeza = Infinity
+  const dene = s => {
+    const c = ceza(s)
+    if (c < enCeza) { en = s; enCeza = c }
+    return c === 0
+  }
+  if (n <= 6) {
+    const adaylar = karistir(tumSiralar(n), rastgele(karma(tohum, 'hepsi')))
+    for (const p of adaylar) if (dene(p.map(i => dizi[i]))) break
+  } else {
+    for (let d = 0; d < 400; d++) if (dene(karistir(dizi, rastgele(karma(tohum, d))))) break
+  }
+  return en
+}
+
+/** Aynı yerde kalan öğe sayısı (her önceki sıra için ayrı sayılır) */
+const cakisma = (s, onceki) => onceki.reduce((t, o) => t + s.reduce((u, x, i) => u + (o[i] === x ? 1 : 0), 0), 0)
+
+// Aynı sıralar her çizimde yeniden aranmasın (yazarken soru metni değişir, kimlikler değişmez)
+const onbellek = new Map()
+function siralarAl(anahtar, ids, g, ceza) {
+  const k = anahtar.join('|') + '#' + ids.join(',')
+  let siralar = onbellek.get(k)
+  if (!siralar) {
+    if (onbellek.size > 4000) onbellek.clear()
+    siralar = [ids]
+    onbellek.set(k, siralar)
+  }
+  while (siralar.length <= g) {
+    const onceki = [...siralar]
+    siralar.push(enIyiSira(ids, karma(...anahtar, siralar.length), s => ceza(s, onceki)))
+  }
+  return siralar[g]
+}
+
+/** Soru sırası (sürüm 2): g. grup; her soru mümkünse A'daki ve önceki gruplardaki yerinden başka yerde */
+function grupSirasi2(ids, anahtar, g) {
+  return siralarAl(anahtar, ids, g, (s, onceki) => cakisma(s, onceki) + (onceki.some(o => ayniSira(o, s)) ? 1000 : 0))
+}
+
+/** Şık sırası (sürüm 2): doğru şık mümkünse her grupta başka harfte; diğer şıklar da mümkünse yer değiştirir */
+function sikSirasi2(ids, dogru, anahtar, g) {
+  return siralarAl([...anahtar, dogru ?? '-'], ids, g, (s, onceki) => {
+    const d = dogru != null ? s.indexOf(dogru) : -1
+    const dogruCakisma = d >= 0 ? onceki.filter(o => o[d] === dogru).length : 0
+    return 100 * dogruCakisma + cakisma(s, onceki) + (onceki.some(o => ayniSira(o, s)) ? 1000 : 0)
+  })
+}
+
 /** Eşleştirme sağ sütunu: hiçbir öğe kendi hizasında kalmasın (mümkünse) */
 function duzensizKaristir(dizi, tohum) {
   if (dizi.length < 2) return [...dizi]
@@ -91,6 +163,7 @@ export function grupOlustur(sinav, g = 0) {
   const { ayar } = sinav
   const harf = GRUP_HARFLERI[g] || 'A'
   const tohum = ayar.tohum || 0
+  const s2 = (ayar.karistirma || 1) >= 2
 
   // ---- soru sırası: bölümler içinde karıştır
   let ogeler = sinav.ogeler
@@ -100,7 +173,8 @@ export function grupOlustur(sinav, g = 0) {
     const bosalt = (bolumIndex) => {
       if (parca.length) {
         // her grup A'dan ve kendinden önceki gruplardan farklı sırada (mümkünse)
-        const sira = grupSirasi(parca.map(o => o.id), [tohum, 'soru', bolumIndex], g)
+        const sira = s2 ? grupSirasi2(parca.map(o => o.id), [tohum, 'soru2', bolumIndex], g)
+          : grupSirasi(parca.map(o => o.id), [tohum, 'soru', bolumIndex], g)
         const byId = new Map(parca.map(o => [o.id, o]))
         for (const id of sira) sonuc.push(byId.get(id))
       }
@@ -121,7 +195,10 @@ export function grupOlustur(sinav, g = 0) {
     const y = { ...o, no }
     if (o.tur === 'coktan') {
       let sira = o.siklar.map(s => s.id)
-      if (g > 0 && ayar.sikKaristir && !o.sikKilit) sira = grupSirasi(sira, [tohum, 'sik', o.id], g)
+      if (g > 0 && ayar.sikKaristir && !o.sikKilit) {
+        sira = s2 ? sikSirasi2(sira, o.siklar.some(k => k.id === o.dogru) ? o.dogru : null, [tohum, 'sik2', o.id], g)
+          : grupSirasi(sira, [tohum, 'sik', o.id], g)
+      }
       const byId = new Map(o.siklar.map(s => [s.id, s]))
       y.siklarSirali = sira.map(id => byId.get(id))
       const i = sira.indexOf(o.dogru)

@@ -1450,3 +1450,16 @@ input.sh-ust-baslik:focus { border-color: var(--ana); box-shadow: 0 0 0 3px var(
   .sh-ekle-cizgi { display: none; }
   .sh-gorsel.secili .sh-gorsel-arac, .sh-oge.secili .sh-gorsel-arac { opacity: 1; pointer-events: auto; }
 }
+
+/* ---------------------------------------------------------------- grupların özeti (karıştırma etkisi) */
+.sh-grup-ozeti { display: grid; gap: 6px; margin-top: 4px; padding: 10px; border: 1px solid var(--cizgi); border-radius: 12px; background: var(--yuzey-2); }
+.sh-grup-ozeti-satir { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 8px; align-items: start; }
+.sh-go-harf { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 6px; background: var(--ana-acik); color: var(--ana-koyu); font-size: 12px; font-weight: 750; }
+.sh-go-icerik { display: grid; gap: 2px; min-width: 0; }
+.sh-go-satir { display: grid; grid-template-columns: 38px minmax(0, 1fr); align-items: baseline; gap: 4px; min-width: 0; }
+.sh-go-satir small { font-size: 11px; color: var(--soluk); }
+.sh-go-satir > span { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.sh-grup-ozeti-satir i { font-style: normal; margin-right: 5px; }
+.sh-grup-ozeti-satir i.ayni { color: var(--soluk); font-weight: 450; }
+.sh-grup-ozeti .sh-oz-not { margin: 2px 0 0; }
+.sh-go-ipucu { padding: 8px 10px; border-radius: 10px; background: var(--ana-acik); color: var(--ana-koyu) !important; }
